@@ -1,0 +1,322 @@
+# Version Kit
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit.svg)](https://pkg.go.dev/github.com/soulteary/version-kit)
+[![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/version-kit)](https://goreportcard.com/report/github.com/soulteary/version-kit)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![codecov](https://codecov.io/gh/soulteary/version-kit/graph/badge.svg)](https://codecov.io/gh/soulteary/version-kit)
+
+[中文文档](README_CN.md)
+
+A version information management toolkit for Go applications. Provides structured version info, HTTP endpoints, and middleware for both net/http and Fiber.
+
+## Features
+
+- **Version Information**: Structured version info with version, commit, build date, branch, and runtime details
+- **HTTP Endpoints**: JSON and text format endpoints for version APIs
+- **Middleware**: Add version headers to all responses
+- **Dual Framework Support**: Works with both net/http and Fiber
+- **Builder Pattern**: Fluent interface for constructing version info
+- **Build-time Injection**: Support for ldflags version injection
+
+## Installation
+
+```bash
+go get github.com/soulteary/version-kit
+```
+
+## Quick Start
+
+### Basic Usage
+
+```go
+package main
+
+import (
+    "fmt"
+    
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    // Create version info
+    info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+    
+    // Print version string
+    fmt.Println(info.String()) // Output: 1.0.0 (abc123)
+    
+    // Print full version info
+    fmt.Println(info.Full())
+    
+    // Get as JSON
+    fmt.Println(info.JSON())
+}
+```
+
+### Using Package Variables with ldflags
+
+```go
+package main
+
+import (
+    "fmt"
+    
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    // Use default package variables
+    // Set during build with ldflags
+    info := version.Default()
+    fmt.Println(info.String())
+}
+```
+
+Build with version info:
+
+```bash
+go build -ldflags "\
+  -X github.com/soulteary/version-kit.Version=1.0.0 \
+  -X github.com/soulteary/version-kit.Commit=$(git rev-parse HEAD) \
+  -X github.com/soulteary/version-kit.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -X github.com/soulteary/version-kit.Branch=$(git rev-parse --abbrev-ref HEAD)" \
+  -o myapp
+```
+
+### HTTP Endpoint (net/http)
+
+```go
+package main
+
+import (
+    "net/http"
+    
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+    
+    mux := http.NewServeMux()
+    
+    // Register JSON endpoint
+    version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
+        Info:   info,
+        Pretty: true,
+    })
+    
+    // Or use handler directly
+    mux.HandleFunc("/v", version.Handler(version.HandlerConfig{Info: info}))
+    
+    // Text format endpoint
+    mux.HandleFunc("/version.txt", version.TextHandler(version.HandlerConfig{Info: info}))
+    
+    // Simple version string
+    mux.HandleFunc("/v/simple", version.SimpleHandler())
+    
+    http.ListenAndServe(":8080", mux)
+}
+```
+
+### HTTP Endpoint (Fiber)
+
+```go
+package main
+
+import (
+    "github.com/gofiber/fiber/v2"
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+    
+    app := fiber.New()
+    
+    // Register JSON endpoint
+    version.RegisterEndpointFiber(app, "/version", version.HandlerConfig{
+        Info:   info,
+        Pretty: true,
+    })
+    
+    // Or use handler directly
+    app.Get("/v", version.FiberHandler(version.HandlerConfig{Info: info}))
+    
+    // Text format endpoint
+    app.Get("/version.txt", version.FiberTextHandler(version.HandlerConfig{Info: info}))
+    
+    // Simple version string
+    app.Get("/v/simple", version.FiberSimpleHandler())
+    
+    app.Listen(":3000")
+}
+```
+
+### Version Headers Middleware
+
+Add version information to all response headers:
+
+```go
+package main
+
+import (
+    "net/http"
+    
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+    
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("Hello"))
+    })
+    
+    // Wrap with version middleware
+    wrapped := version.Middleware(info, "X-")(handler)
+    
+    // All responses will have:
+    // X-Version: 1.0.0
+    // X-Commit: abc123
+    // X-Build-Date: 2025-01-01T00:00:00Z
+    
+    http.ListenAndServe(":8080", wrapped)
+}
+```
+
+For Fiber:
+
+```go
+package main
+
+import (
+    "github.com/gofiber/fiber/v2"
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+    
+    app := fiber.New()
+    
+    // Add version headers to all responses
+    app.Use(version.FiberMiddleware(info, "X-"))
+    
+    app.Get("/", func(c *fiber.Ctx) error {
+        return c.SendString("Hello")
+    })
+    
+    app.Listen(":3000")
+}
+```
+
+### Builder Pattern
+
+```go
+package main
+
+import (
+    "fmt"
+    
+    version "github.com/soulteary/version-kit"
+)
+
+func main() {
+    info := version.NewBuilder().
+        WithVersion("1.0.0").
+        WithCommit("abc123").
+        WithBuildDate("2025-01-01T00:00:00Z").
+        WithBranch("main").
+        Build()
+    
+    fmt.Println(info.String())
+}
+```
+
+### Include Headers in Endpoint Response
+
+```go
+version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
+    Info:           info,
+    IncludeHeaders: true,  // Add version headers to response
+    HeaderPrefix:   "X-App-", // Custom prefix
+})
+```
+
+## API Reference
+
+### Info Methods
+
+| Method | Description |
+|--------|-------------|
+| `String()` | Returns version with short commit (e.g., "1.0.0 (abc1234)") |
+| `Full()` | Returns detailed multi-line version info |
+| `JSON()` | Returns JSON representation |
+| `JSONPretty()` | Returns pretty-printed JSON |
+| `Map()` | Returns version info as map[string]string |
+| `Validate()` | Validates required fields |
+| `IsDev()` | Returns true if version is "dev" or empty |
+| `BuildTimestamp()` | Parses build date as time.Time |
+| `ShortCommit()` | Returns first 7 characters of commit |
+
+### HandlerConfig Options
+
+```go
+type HandlerConfig struct {
+    Info           *Info   // Version info (default: Default())
+    Pretty         bool    // Pretty-print JSON (default: false)
+    IncludeHeaders bool    // Add version headers (default: false)
+    HeaderPrefix   string  // Header prefix (default: "X-")
+}
+```
+
+### Package Variables
+
+Set these via ldflags at build time:
+
+```go
+var (
+    Version   = "dev"      // Application version
+    Commit    = "unknown"  // Git commit hash
+    BuildDate = "unknown"  // Build timestamp
+    Branch    = ""         // Git branch name
+)
+```
+
+## Example Response
+
+### JSON Endpoint
+
+```json
+{
+  "version": "1.0.0",
+  "commit": "abc123def456",
+  "build_date": "2025-01-01T00:00:00Z",
+  "branch": "main",
+  "go_version": "go1.25",
+  "platform": "linux/amd64",
+  "compiler": "gc"
+}
+```
+
+### Text Endpoint
+
+```
+Version:    1.0.0
+Commit:     abc123def456
+Branch:     main
+Built:      2025-01-01T00:00:00Z
+Go version: go1.25
+Platform:   linux/amd64
+Compiler:   gc
+```
+
+## Testing
+
+```bash
+go test -v -race -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+## License
+
+Apache License 2.0
