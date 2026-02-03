@@ -84,6 +84,27 @@ func TestHandler_WithHeaders(t *testing.T) {
 	assert.Equal(t, "2025-01-01T00:00:00Z", resp.Header.Get("X-App-Build-Date"))
 }
 
+func TestHandler_WithHeaders_SanitizesValues(t *testing.T) {
+	info := NewWithBranch("1.0.0\r\n", "abc1234567890", "2025-01-01T00:00:00Z\r\n", "main\r\n")
+	handler := Handler(HandlerConfig{
+		Info:           info,
+		IncludeHeaders: true,
+		HeaderPrefix:   "X-App-",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/version", nil)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	resp := w.Result()
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, "1.0.0", resp.Header.Get("X-App-Version"))
+	assert.Equal(t, "main", resp.Header.Get("X-App-Branch"))
+	assert.Equal(t, "2025-01-01T00:00:00Z", resp.Header.Get("X-App-Build-Date"))
+}
+
 func TestHandler_Pretty(t *testing.T) {
 	info := New("1.0.0", "abc123", "")
 	handler := Handler(HandlerConfig{

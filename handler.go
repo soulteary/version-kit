@@ -3,6 +3,7 @@ package version
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -119,36 +120,45 @@ func RegisterEndpointFiber(app *fiber.App, path string, config ...HandlerConfig)
 
 // setVersionHeaders adds version information to HTTP headers.
 func setVersionHeaders(h http.Header, info *Info, prefix string) {
-	h.Set(prefix+"Version", info.Version)
+	h.Set(prefix+"Version", sanitizeHeaderValue(info.Version))
 
 	if info.Commit != "" && info.Commit != "unknown" {
-		h.Set(prefix+"Commit", info.ShortCommit())
+		h.Set(prefix+"Commit", sanitizeHeaderValue(info.ShortCommit()))
 	}
 
 	if info.Branch != "" {
-		h.Set(prefix+"Branch", info.Branch)
+		h.Set(prefix+"Branch", sanitizeHeaderValue(info.Branch))
 	}
 
 	if info.BuildDate != "" && info.BuildDate != "unknown" {
-		h.Set(prefix+"Build-Date", info.BuildDate)
+		h.Set(prefix+"Build-Date", sanitizeHeaderValue(info.BuildDate))
 	}
 }
 
 // setVersionHeadersFiber adds version information to Fiber response headers.
 func setVersionHeadersFiber(c *fiber.Ctx, info *Info, prefix string) {
-	c.Set(prefix+"Version", info.Version)
+	c.Set(prefix+"Version", sanitizeHeaderValue(info.Version))
 
 	if info.Commit != "" && info.Commit != "unknown" {
-		c.Set(prefix+"Commit", info.ShortCommit())
+		c.Set(prefix+"Commit", sanitizeHeaderValue(info.ShortCommit()))
 	}
 
 	if info.Branch != "" {
-		c.Set(prefix+"Branch", info.Branch)
+		c.Set(prefix+"Branch", sanitizeHeaderValue(info.Branch))
 	}
 
 	if info.BuildDate != "" && info.BuildDate != "unknown" {
-		c.Set(prefix+"Build-Date", info.BuildDate)
+		c.Set(prefix+"Build-Date", sanitizeHeaderValue(info.BuildDate))
 	}
+}
+
+func sanitizeHeaderValue(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r <= 31 || r == 127 {
+			return -1
+		}
+		return r
+	}, value)
 }
 
 // Middleware returns an http.Handler middleware that adds version headers to all responses.
