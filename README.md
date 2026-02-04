@@ -18,6 +18,11 @@ A version information management toolkit for Go applications. Provides structure
 - **Builder Pattern**: Fluent interface for constructing version info
 - **Build-time Injection**: Support for ldflags version injection
 
+## Requirements
+
+- **Go 1.25+** for building and running.
+- Using Fiber-related APIs (`FiberHandler`, `FiberMiddleware`, etc.) pulls in `github.com/gofiber/fiber/v2` (declared in go.mod).
+
 ## Installation
 
 ```bash
@@ -81,6 +86,8 @@ go build -ldflags "\
   -X github.com/soulteary/version-kit.Branch=$(git rev-parse --abbrev-ref HEAD)" \
   -o myapp
 ```
+
+For a short commit hash only, use `git rev-parse --short HEAD` instead of `git rev-parse HEAD` for the `Commit` variable.
 
 ### HTTP Endpoint (net/http)
 
@@ -244,6 +251,15 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ## API Reference
 
+### Package-level functions
+
+| Function | Description |
+|----------|-------------|
+| `New(version, commit, buildDate string) *Info` | Creates version info with the given version, commit, and build date. Runtime fields (Go version, platform, compiler) are set automatically. |
+| `NewWithBranch(version, commit, buildDate, branch string) *Info` | Like `New` but also sets the branch name. |
+| `Default() *Info` | Returns info from package variables (Version, Commit, BuildDate, Branch), typically set via ldflags. |
+| `NewBuilder() *Builder` | Returns a builder for constructing `Info` with a fluent API. |
+
 ### Info Methods
 
 | Method | Description |
@@ -259,6 +275,8 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 | `ShortCommit()` | Returns first 7 characters of commit |
 
 ### HandlerConfig Options
+
+Use `DefaultHandlerConfig()` to get a config with default values when you only want to override specific fields.
 
 ```go
 type HandlerConfig struct {

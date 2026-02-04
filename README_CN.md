@@ -18,6 +18,11 @@
 - **构建器模式**: 流式接口构建版本信息
 - **构建时注入**: 支持通过 ldflags 注入版本信息
 
+## 运行要求
+
+- **Go 1.25+**，用于构建与运行。
+- 使用 Fiber 相关 API（`FiberHandler`、`FiberMiddleware` 等）会引入 `github.com/gofiber/fiber/v2` 依赖（已在 go.mod 中声明）。
+
 ## 安装
 
 ```bash
@@ -81,6 +86,8 @@ go build -ldflags "\
   -X github.com/soulteary/version-kit.Branch=$(git rev-parse --abbrev-ref HEAD)" \
   -o myapp
 ```
+
+若只需短提交哈希，可将 `Commit` 变量中的 `git rev-parse HEAD` 改为 `git rev-parse --short HEAD`。
 
 ### HTTP 端点 (net/http)
 
@@ -244,6 +251,15 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ## API 参考
 
+### 包级函数
+
+| 函数 | 描述 |
+|------|------|
+| `New(version, commit, buildDate string) *Info` | 根据版本号、提交哈希和构建日期创建版本信息，运行时字段（Go 版本、平台、编译器）会自动填充。 |
+| `NewWithBranch(version, commit, buildDate, branch string) *Info` | 与 `New` 类似，同时设置分支名。 |
+| `Default() *Info` | 使用包变量（Version、Commit、BuildDate、Branch）构造信息，通常由 ldflags 在构建时注入。 |
+| `NewBuilder() *Builder` | 返回用于以流式 API 构建 `Info` 的 Builder。 |
+
 ### Info 方法
 
 | 方法 | 描述 |
@@ -259,6 +275,8 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 | `ShortCommit()` | 返回提交哈希的前 7 个字符 |
 
 ### HandlerConfig 选项
+
+仅需覆盖部分字段时，可使用 `DefaultHandlerConfig()` 获取默认配置后再修改。
 
 ```go
 type HandlerConfig struct {
