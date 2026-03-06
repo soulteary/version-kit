@@ -20,7 +20,7 @@ A version information management toolkit for Go applications. Provides structure
 
 ## Requirements
 
-- **Go 1.25+** for building and running.
+- **Go 1.26+** for building and running.
 - Using Fiber-related APIs (`FiberHandler`, `FiberMiddleware`, etc.) pulls in `github.com/gofiber/fiber/v2` (declared in go.mod).
 
 ## Installation
@@ -310,7 +310,7 @@ var (
   "commit": "abc123def456",
   "build_date": "2025-01-01T00:00:00Z",
   "branch": "main",
-  "go_version": "go1.25",
+  "go_version": "go1.26",
   "platform": "linux/amd64",
   "compiler": "gc"
 }
@@ -323,7 +323,7 @@ Version:    1.0.0
 Commit:     abc123def456
 Branch:     main
 Built:      2025-01-01T00:00:00Z
-Go version: go1.25
+Go version: go1.26
 Platform:   linux/amd64
 Compiler:   gc
 ```

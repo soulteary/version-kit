@@ -1,9 +1,9 @@
 module github.com/soulteary/version-kit
 
-go 1.26.0
+go 1.26
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.11
+	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/stretchr/testify v1.10.0
 )
 

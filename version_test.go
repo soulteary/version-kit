@@ -109,7 +109,7 @@ func TestInfo_Full(t *testing.T) {
 func TestInfo_Full_Minimal(t *testing.T) {
 	info := &Info{
 		Version:   "1.0.0",
-		GoVersion: "go1.25",
+		GoVersion: "go1.26",
 		Platform:  "linux/amd64",
 		Compiler:  "gc",
 	}
@@ -164,7 +164,7 @@ func TestInfo_Map(t *testing.T) {
 func TestInfo_Map_Minimal(t *testing.T) {
 	info := &Info{
 		Version:   "1.0.0",
-		GoVersion: "go1.25",
+		GoVersion: "go1.26",
 		Platform:  "linux/amd64",
 		Compiler:  "gc",
 	}

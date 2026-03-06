@@ -20,7 +20,7 @@
 
 ## 运行要求
 
-- **Go 1.25+**，用于构建与运行。
+- **Go 1.26+**，用于构建与运行。
 - 使用 Fiber 相关 API（`FiberHandler`、`FiberMiddleware` 等）会引入 `github.com/gofiber/fiber/v2` 依赖（已在 go.mod 中声明）。
 
 ## 安装
@@ -310,7 +310,7 @@ var (
   "commit": "abc123def456",
   "build_date": "2025-01-01T00:00:00Z",
   "branch": "main",
-  "go_version": "go1.25",
+  "go_version": "go1.26",
   "platform": "linux/amd64",
   "compiler": "gc"
 }
@@ -323,7 +323,7 @@ Version:    1.0.0
 Commit:     abc123def456
 Branch:     main
 Built:      2025-01-01T00:00:00Z
-Go version: go1.25
+Go version: go1.26
 Platform:   linux/amd64
 Compiler:   gc
 ```
