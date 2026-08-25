@@ -1,7 +1,7 @@
 # Version Kit
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit.svg)](https://pkg.go.dev/github.com/soulteary/version-kit)
-[![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/version-kit)](https://goreportcard.com/report/github.com/soulteary/version-kit)
+[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v2.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v2)
+[![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/version-kit/v2)](https://goreportcard.com/report/github.com/soulteary/version-kit/v2)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/soulteary/version-kit/graph/badge.svg)](https://codecov.io/gh/soulteary/version-kit)
 
@@ -21,12 +21,14 @@
 ## 运行要求
 
 - **Go 1.26+**，用于构建与运行。
-- 使用 Fiber 相关 API（`FiberHandler`、`FiberMiddleware` 等）会引入 `github.com/gofiber/fiber/v2` 依赖（已在 go.mod 中声明）。
+- Fiber API（`FiberHandler`、`FiberMiddleware` 等）要求 Fiber v3.4.0 或更高版本。
+
+此 v2 模块版本面向 Fiber v3。仍使用 Fiber v2 的应用应继续使用 `github.com/soulteary/version-kit` v1。
 
 ## 安装
 
 ```bash
-go get github.com/soulteary/version-kit
+go get github.com/soulteary/version-kit/v2
 ```
 
 ## 快速开始
@@ -39,7 +41,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {
@@ -65,7 +67,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {
@@ -80,10 +82,10 @@ func main() {
 
 ```bash
 go build -ldflags "\
-  -X github.com/soulteary/version-kit.Version=1.0.0 \
-  -X github.com/soulteary/version-kit.Commit=$(git rev-parse HEAD) \
-  -X github.com/soulteary/version-kit.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -X github.com/soulteary/version-kit.Branch=$(git rev-parse --abbrev-ref HEAD)" \
+  -X github.com/soulteary/version-kit/v2.Version=1.0.0 \
+  -X github.com/soulteary/version-kit/v2.Commit=$(git rev-parse HEAD) \
+  -X github.com/soulteary/version-kit/v2.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -X github.com/soulteary/version-kit/v2.Branch=$(git rev-parse --abbrev-ref HEAD)" \
   -o myapp
 ```
 
@@ -97,7 +99,7 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {
@@ -130,8 +132,8 @@ func main() {
 package main
 
 import (
-    "github.com/gofiber/fiber/v2"
-    version "github.com/soulteary/version-kit"
+    "github.com/gofiber/fiber/v3"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {
@@ -168,7 +170,7 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {
@@ -196,8 +198,8 @@ Fiber 版本:
 package main
 
 import (
-    "github.com/gofiber/fiber/v2"
-    version "github.com/soulteary/version-kit"
+    "github.com/gofiber/fiber/v3"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {
@@ -208,7 +210,7 @@ func main() {
     // 为所有响应添加版本头信息
     app.Use(version.FiberMiddleware(info, "X-"))
     
-    app.Get("/", func(c *fiber.Ctx) error {
+    app.Get("/", func(c fiber.Ctx) error {
         return c.SendString("Hello")
     })
     
@@ -224,7 +226,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit"
+    version "github.com/soulteary/version-kit/v2"
 )
 
 func main() {

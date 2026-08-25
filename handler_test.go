@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -343,7 +343,7 @@ func TestFiberMiddleware(t *testing.T) {
 	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
 
 	app.Use(FiberMiddleware(info, "X-"))
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
 
@@ -360,7 +360,7 @@ func TestFiberMiddleware_DefaultInfo(t *testing.T) {
 	app := fiber.New()
 
 	app.Use(FiberMiddleware(nil, ""))
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
 
