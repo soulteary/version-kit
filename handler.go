@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // HandlerConfig configures the version endpoint handler.
@@ -93,7 +93,7 @@ func FiberHandler(config ...HandlerConfig) fiber.Handler {
 		cfg.HeaderPrefix = "X-"
 	}
 
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		c.Set("Content-Type", "application/json")
 
 		if cfg.IncludeHeaders {
@@ -136,7 +136,7 @@ func setVersionHeaders(h http.Header, info *Info, prefix string) {
 }
 
 // setVersionHeadersFiber adds version information to Fiber response headers.
-func setVersionHeadersFiber(c *fiber.Ctx, info *Info, prefix string) {
+func setVersionHeadersFiber(c fiber.Ctx, info *Info, prefix string) {
 	c.Set(prefix+"Version", sanitizeHeaderValue(info.Version))
 
 	if info.Commit != "" && info.Commit != "unknown" {
@@ -187,7 +187,7 @@ func FiberMiddleware(info *Info, prefix string) fiber.Handler {
 		prefix = "X-"
 	}
 
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		setVersionHeadersFiber(c, info, prefix)
 		return c.Next()
 	}
@@ -227,7 +227,7 @@ func FiberTextHandler(config ...HandlerConfig) fiber.Handler {
 		cfg.Info = Default()
 	}
 
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		c.Set("Content-Type", "text/plain; charset=utf-8")
 
 		if cfg.IncludeHeaders {
@@ -249,7 +249,7 @@ func SimpleHandler() http.HandlerFunc {
 
 // FiberSimpleHandler returns a minimal Fiber handler that just returns the version string.
 func FiberSimpleHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		c.Set("Content-Type", "text/plain; charset=utf-8")
 		return c.SendString(Default().String())
 	}
