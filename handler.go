@@ -10,6 +10,11 @@ import (
 type HandlerConfig struct {
 	// Info is the version information to return.
 	// If nil, Default() will be used.
+	//
+	// The version headers are computed once, when the handler or middleware
+	// is built, and reused on every response -- mutating an Info afterwards
+	// does not change them. That was already a data race, so nothing which
+	// was safe before stopped working.
 	Info *Info
 
 	// Pretty enables pretty-printed JSON output.
@@ -146,12 +151,13 @@ func DefaultHandlerConfig() HandlerConfig {
 // Handler returns an http.HandlerFunc that serves version information.
 func Handler(config ...HandlerConfig) http.HandlerFunc {
 	cfg := ResolveConfig(config...)
+	headers := cfg.Headers()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if cfg.IncludeHeaders {
-			setVersionHeaders(w.Header(), cfg)
+			setVersionHeaders(w.Header(), headers)
 		}
 
 		var output []byte
@@ -178,9 +184,12 @@ func RegisterEndpoint(mux *http.ServeMux, path string, config ...HandlerConfig) 
 	mux.HandleFunc(path, Handler(config...))
 }
 
-// setVersionHeaders adds version information to HTTP headers.
-func setVersionHeaders(h http.Header, cfg HandlerConfig) {
-	for name, value := range cfg.Headers() {
+// setVersionHeaders writes headers that HandlerConfig.Headers already computed.
+// They are the same on every response, so callers compute them once when the
+// handler is built rather than rebuilding the map per request -- these run on
+// every response a middleware touches.
+func setVersionHeaders(h http.Header, headers map[string]string) {
+	for name, value := range headers {
 		h.Set(name, value)
 	}
 }
@@ -208,11 +217,11 @@ func Middleware(info *Info, prefix string) func(http.Handler) http.Handler {
 // MiddlewareWithConfig is Middleware with the handlers' full configuration,
 // including IncludeBuildDetails for the commit and build-date headers.
 func MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler {
-	cfg := config.Normalized()
+	headers := config.Normalized().Headers()
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			setVersionHeaders(w.Header(), cfg)
+			setVersionHeaders(w.Header(), headers)
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -220,22 +229,14 @@ func MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler 
 
 // TextHandler returns an http.HandlerFunc that serves version information as plain text.
 func TextHandler(config ...HandlerConfig) http.HandlerFunc {
-	cfg := DefaultHandlerConfig()
-	if len(config) > 0 {
-		cfg = config[0]
-	}
-
-	if cfg.Info == nil {
-		cfg.Info = Default()
-	}
-
-	cfg.HeaderPrefix = normalizeHeaderPrefix(cfg.HeaderPrefix)
+	cfg := ResolveConfig(config...)
+	headers := cfg.Headers()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 		if cfg.IncludeHeaders {
-			setVersionHeaders(w.Header(), cfg)
+			setVersionHeaders(w.Header(), headers)
 		}
 
 		w.WriteHeader(http.StatusOK)

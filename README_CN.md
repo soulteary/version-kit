@@ -25,6 +25,10 @@
 > | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
 > | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
 >
+> 随之还有一处响应变化：JSON 端点的 `Content-Type` 现在两个框架统一为
+> `application/json`。Fiber 此前返回 `application/json; charset=utf-8`，
+> 而 net/http 从来不是。
+>
 > net/http 一侧没有任何变化。
 
 ## 功能特性

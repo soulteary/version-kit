@@ -6,6 +6,9 @@
 // than quietly widening it. Both are invisible to statement coverage -- the
 // package reaches 100% without either -- because opting build details in runs
 // exactly the same lines as leaving them out.
+//
+// TestPrettyIsNotHonoured is the exception: it pins a known gap rather than a
+// wanted behaviour, so that closing it shows up as a failing test.
 package fiberadapter_test
 
 import (
@@ -239,23 +242,24 @@ func TestPrettyIsNotHonoured(t *testing.T) {
 	}
 }
 
-// TestJSONContentTypeDiffersFromNetHTTP pins the second known gap: the adapter
-// sets "application/json", fiber.Ctx.JSON then overwrites it with its own
-// charset-qualified form. Both are valid, but the two frameworks disagree, and
-// the c.Set in Handler is dead code as long as they do.
-func TestJSONContentTypeDiffersFromNetHTTP(t *testing.T) {
+// fiber.Ctx.JSON defaults to "application/json; charset=utf-8" and overwrites
+// any Content-Type set before it, so the adapter has to hand it the type
+// through JSON's ctype argument. Drop that argument and the two frameworks
+// answer differently -- which is what this catches.
+func TestJSONContentTypeMatchesNetHTTP(t *testing.T) {
 	info := version.New("1.0.0", "abcdef1234567890", "2026-01-02T03:04:05Z")
+	config := version.HandlerConfig{Info: info}
 
-	resp := serveFiber(t, "/version", fiberadapter.Handler(version.HandlerConfig{Info: info}))
+	resp := serveFiber(t, "/version", fiberadapter.Handler(config))
 
 	rec := httptest.NewRecorder()
-	version.Handler(version.HandlerConfig{Info: info})(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	version.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 
 	if got, want := rec.Header().Get("Content-Type"), "application/json"; got != want {
 		t.Errorf("net/http Content-Type = %q, want %q", got, want)
 	}
-	if got, want := resp.Header.Get("Content-Type"), "application/json; charset=utf-8"; got != want {
-		t.Errorf("fiber Content-Type = %q, want %q -- if this changed, the two frameworks may now agree", got, want)
+	if got, want := resp.Header.Get("Content-Type"), rec.Header().Get("Content-Type"); got != want {
+		t.Errorf("fiber Content-Type = %q, net/http = %q", got, want)
 	}
 }
 

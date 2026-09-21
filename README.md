@@ -26,6 +26,10 @@ A version information management toolkit for Go applications. Provides structure
 > | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
 > | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
 >
+> One response change comes with it: the JSON endpoint now answers
+> `Content-Type: application/json` on both frameworks. Fiber used to answer
+> `application/json; charset=utf-8`, which net/http never did.
+>
 > Nothing on the net/http side changed.
 
 ## Features

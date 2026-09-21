@@ -21,18 +21,22 @@ import (
 // It is the Fiber counterpart of version.Handler.
 func Handler(config ...version.HandlerConfig) fiber.Handler {
 	cfg := version.ResolveConfig(config...)
+	headers := cfg.Headers()
 
 	return func(c fiber.Ctx) error {
-		c.Set("Content-Type", "application/json")
-
 		if cfg.IncludeHeaders {
-			setHeaders(c, cfg)
+			setHeaders(c, headers)
 		}
 
 		// HandlerConfig.Pretty has never taken effect on the Fiber side:
 		// fiber.Ctx.JSON always writes compact JSON. Kept as-is so this change
 		// stays a pure move; see the PR for the follow-up.
-		return c.JSON(cfg.Payload())
+		//
+		// The Content-Type is handed to JSON rather than set beforehand,
+		// because JSON overwrites it either way. Left to its default, Fiber
+		// answers "application/json; charset=utf-8" where net/http answers
+		// "application/json" -- and RFC 8259 defines no charset parameter.
+		return c.JSON(cfg.Payload(), fiber.MIMEApplicationJSON)
 	}
 }
 
@@ -52,10 +56,10 @@ func Middleware(info *version.Info, prefix string) fiber.Handler {
 // MiddlewareWithConfig is Middleware with the handlers' full configuration,
 // including IncludeBuildDetails.
 func MiddlewareWithConfig(config version.HandlerConfig) fiber.Handler {
-	cfg := config.Normalized()
+	headers := config.Normalized().Headers()
 
 	return func(c fiber.Ctx) error {
-		setHeaders(c, cfg)
+		setHeaders(c, headers)
 		return c.Next()
 	}
 }
@@ -64,12 +68,13 @@ func MiddlewareWithConfig(config version.HandlerConfig) fiber.Handler {
 // text. It is the Fiber counterpart of version.TextHandler.
 func TextHandler(config ...version.HandlerConfig) fiber.Handler {
 	cfg := version.ResolveConfig(config...)
+	headers := cfg.Headers()
 
 	return func(c fiber.Ctx) error {
 		c.Set("Content-Type", "text/plain; charset=utf-8")
 
 		if cfg.IncludeHeaders {
-			setHeaders(c, cfg)
+			setHeaders(c, headers)
 		}
 
 		return c.SendString(cfg.TextPayload())
@@ -87,9 +92,10 @@ func SimpleHandler() fiber.Handler {
 
 // setHeaders writes the version headers the root package computed. The names,
 // values and sanitizing all come from HandlerConfig.Headers, so Fiber emits
-// byte-for-byte what net/http does.
-func setHeaders(c fiber.Ctx, cfg version.HandlerConfig) {
-	for name, value := range cfg.Headers() {
+// byte-for-byte what net/http does. They are the same on every response, so
+// callers compute them once when the handler is built.
+func setHeaders(c fiber.Ctx, headers map[string]string) {
+	for name, value := range headers {
 		c.Set(name, value)
 	}
 }
