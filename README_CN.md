@@ -522,6 +522,8 @@ CI 实际跑的是：
 gofmt -s -l .
 go vet ./...
 go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+golangci-lint run --timeout=5m
+govulncheck ./...
 
 go tool cover -func=coverage.out   # 按函数汇总
 go tool cover -html=coverage.out   # 带标注的源码
@@ -529,6 +531,13 @@ go tool cover -html=coverage.out   # 带标注的源码
 
 `-covermode=atomic` 在搭配 `-race` 时是必需的：默认的 `set` 模式不是 race-safe，
 而且 Codecov 读的就是 atomic 计数。
+
+其中有一个测试测的不是行为。`TestRootPackageStaysDependencyFree` 会读
+`go list -deps .`，一旦根包重新引入了 `net/http`、Fiber 或 fasthttp 就失败。
+拦住重新引入这件事的只有它：把 `net/http` 加回根包——比如只为了用一个
+`http.StatusOK` 常量——能编译通过，别的测试也全都照过，却会悄悄把 124 个包
+重新塞回每个使用者的二进制里。测试文件天然不受影响：`go list -deps .` 报告的是
+包自身的导入图，不含其测试的。
 
 ## 从 v3 迁移
 

@@ -53,6 +53,19 @@ including the CLIs printing `--version` that are most of this kit's use.
   constant is enough to undo the split. The two status codes `JSONResponse`
   returns are written out as literals for that reason, with a comment saying so.
 
+### Other
+
+- Coverage: 97.0% root, 100% `httpadapter`, 100% `fiberadapter`, 98.2% total.
+  The root package's own number is down from v3's 98.3% without anything having
+  become less tested: the handler tests that used to reach
+  `HandlerConfig.TextPayload`'s build-details branch now live in `httpadapter`,
+  and `go test .` does not cross a package boundary. Run with
+  `-coverpkg=./...` and the module is at 98.7%, with nothing uncovered but the
+  three `json.Marshal` error branches, which an all-string `Info` cannot reach.
+  The branch does not need a new root-package test; adding one that builds a
+  handler would put the dependency back.
+- No dependency changes: `go.mod` carries the same requirements as v3.0.0.
+
 ## v3.0.0
 
 A new major version, which in Go means a new module path. **Every import

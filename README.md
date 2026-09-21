@@ -434,7 +434,7 @@ Use `DefaultHandlerConfig()` to get a config with default values when you only w
 
 ```go
 type HandlerConfig struct {
-    Info           *Info   // Version info (default: Default())
+    Info                *Info  // Version info (default: Default())
     Pretty              bool   // Pretty-print JSON (default: false)
     IncludeHeaders      bool   // Add version headers (default: false)
     HeaderPrefix        string // Header prefix (default: "X-")
@@ -495,6 +495,8 @@ What CI runs:
 gofmt -s -l .
 go vet ./...
 go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+golangci-lint run --timeout=5m
+govulncheck ./...
 
 go tool cover -func=coverage.out   # per-function summary
 go tool cover -html=coverage.out   # annotated source
@@ -502,6 +504,15 @@ go tool cover -html=coverage.out   # annotated source
 
 `-covermode=atomic` is required alongside `-race`; the default `set` mode is
 not race-safe and Codecov reads the atomic counts.
+
+One of those tests is not about behaviour. `TestRootPackageStaysDependencyFree`
+reads `go list -deps .` and fails if the root package has picked up `net/http`,
+Fiber or fasthttp again. That is the only thing standing between the root
+package and a re-import: adding `net/http` back — for an `http.StatusOK`
+constant, say — compiles and passes everything else, while quietly putting 124
+packages back into every importer's binary. Test files are exempt by
+construction, since `go list -deps .` reports the package's own import graph
+and not its tests'.
 
 ## Build Details
 

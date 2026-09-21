@@ -86,9 +86,10 @@ func normalizeHeaderPrefix(prefix string) string {
 
 // Payload returns the Info to serve, reduced unless build details were asked for.
 //
-// Exported for framework adapters (see the fiberadapter subpackage): the
-// reduction rule must be identical across frameworks, so every adapter reads
-// it from here instead of restating it.
+// Exported for framework adapters (httpadapter and fiberadapter in-tree, and
+// whatever an Echo, Gin or chi service writes for itself): the reduction rule
+// must be identical across frameworks, so every adapter reads it from here
+// instead of restating it.
 func (c HandlerConfig) Payload() *Info {
 	if c.Info == nil {
 		c = c.Normalized()
