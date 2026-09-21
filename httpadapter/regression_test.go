@@ -12,6 +12,11 @@ import (
 	version "github.com/soulteary/version-kit/v4"
 )
 
+// TestHandlerOmitsBuildDetailsByDefault: the version endpoint is usually
+// unauthenticated, and go_version lets anyone match a published Go runtime CVE
+// to the exact build serving them. Commit, build date, platform and compiler
+// narrow it further. None of it is a vulnerability on its own; it is
+// reconnaissance that costs nothing to withhold.
 func TestHandlerOmitsBuildDetailsByDefault(t *testing.T) {
 	info := version.NewWithBranch("1.0.0", "abc123", "2025-01-01T00:00:00Z", "main")
 
@@ -111,6 +116,10 @@ func TestInvalidHeaderPrefixFallsBack(t *testing.T) {
 	}
 }
 
+// TestHeadersHonourIncludeBuildDetails is the regression test for headers being
+// built from cfg.Info instead of the payload actually served: an endpoint with
+// IncludeHeaders on but IncludeBuildDetails off still emitted the commit and
+// build date, so the build fingerprint leaked through the header path.
 func TestHeadersHonourIncludeBuildDetails(t *testing.T) {
 	info := &version.Info{
 		Version:   "1.2.3",
@@ -160,10 +169,6 @@ func TestHeadersHonourIncludeBuildDetails(t *testing.T) {
 		}
 	})
 }
-
-// TestValidHeaderPrefixAcceptsTokenChars covers prefixes that are valid HTTP
-// tokens but were rejected by the alphanumeric-and-dash-only check, which
-// silently rewrote a caller's configured prefix to "X-".
 
 // TestUnusualHeaderPrefixSurvivesIntoTheHeaderName pairs with
 // TestValidHeaderPrefixAcceptsTokenChars in the root package: that one checks

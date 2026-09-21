@@ -4,12 +4,11 @@ import (
 	"testing"
 )
 
-// TestHandlerOmitsBuildDetailsByDefault: the version endpoint is usually
-// unauthenticated, and go_version lets anyone match a published Go runtime CVE
-// to the exact build serving them. Commit, build date, platform and compiler
-// narrow it further. None of it is a vulnerability on its own; it is
-// reconnaissance that costs nothing to withhold.
-
+// TestPublicKeepsOnlySafeFields guards Public(), the reduction every handler
+// and middleware applies before serving. The endpoint policy it implements --
+// and why the build details are withheld -- is documented with the handler
+// tests in httpadapter; here the concern is narrower: Public() must drop every
+// build detail, keep the two safe fields, and not mutate its receiver.
 func TestPublicKeepsOnlySafeFields(t *testing.T) {
 	full := NewWithBranch("1.0.0", "abc123", "2025-01-01T00:00:00Z", "main")
 	pub := full.Public()
@@ -30,11 +29,6 @@ func TestPublicKeepsOnlySafeFields(t *testing.T) {
 }
 
 // --- Codex review follow-ups (PR #4) ---
-
-// TestHeadersHonourIncludeBuildDetails is the regression test for headers being
-// built from cfg.Info instead of the payload actually served: an endpoint with
-// IncludeHeaders on but IncludeBuildDetails off still emitted the commit and
-// build date, so the build fingerprint leaked through the header path.
 
 // TestValidHeaderPrefixAcceptsTokenChars pins the validator to RFC 9110 5.6.2:
 // a field name is a token, so every tchar is allowed -- not just the
