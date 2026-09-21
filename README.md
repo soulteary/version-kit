@@ -1,6 +1,6 @@
 # Version Kit
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v2.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v3.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v3)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/soulteary/version-kit/graph/badge.svg)](https://codecov.io/gh/soulteary/version-kit)
@@ -10,33 +10,14 @@
 A version information management toolkit for Go applications. Provides structured version info, HTTP endpoints, and middleware for both net/http and Fiber.
 
 
-> **Breaking in v2.3.0 — Fiber support moved to a subpackage.**
-> The `Fiber*` functions are now `github.com/soulteary/version-kit/v2/fiberadapter`,
-> so importing the root package no longer links Fiber (and fasthttp) into
-> binaries that never use it. In a net/http service that means **25 fewer
-> linked packages, 11 fewer modules and a 14% smaller binary**.
-> Fiber users add one import and drop the `Fiber` prefix:
+> **v3 changes the module path.** Every import becomes
+> `github.com/soulteary/version-kit/v3` — and so does the `-ldflags -X` path,
+> which **fails silently** if you miss it. Fiber support also moved to a
+> subpackage, so importing the root package no longer links Fiber (and
+> fasthttp) into binaries that never use it: for a net/http service that is
+> **25 fewer linked packages, 11 fewer modules and a 14% smaller binary**.
 >
-> | Before | After |
-> |---|---|
-> | `version.FiberHandler(...)` | `fiberadapter.Handler(...)` |
-> | `version.FiberTextHandler(...)` | `fiberadapter.TextHandler(...)` |
-> | `version.FiberSimpleHandler()` | `fiberadapter.SimpleHandler()` |
-> | `version.FiberMiddleware(...)` | `fiberadapter.Middleware(...)` |
-> | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
-> | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
->
-> Two response changes come with it, both on the Fiber side. The JSON endpoint
-> now answers `Content-Type: application/json` on both frameworks; Fiber used
-> to answer `application/json; charset=utf-8`, which net/http never did. And
-> `HandlerConfig.Pretty` now works there: `fiber.Ctx.JSON` always writes
-> compact JSON, so a Fiber endpoint configured with `Pretty: true` -- including
-> the one in the example below -- was silently served compact and now comes
-> back indented. Both follow from the body being encoded by version-kit rather
-> than by the Fiber app's configured `JSONEncoder`, which this endpoint no
-> longer goes through.
->
-> Nothing on the net/http side changed.
+> → **[Migrating from v2](#migrating-from-v2)**
 
 ## Features
 
@@ -52,12 +33,12 @@ A version information management toolkit for Go applications. Provides structure
 - **Go 1.27+** for building and running (`go.mod` declares `go 1.27.0`).
 - Fiber APIs (`fiberadapter.Handler`, `fiberadapter.Middleware`, etc.) require Fiber v3.4.0 or later.
 
-This v2 module line targets Fiber v3. Applications that still use Fiber v2 should remain on `github.com/soulteary/version-kit` v1.
+This v3 module line targets Fiber v3. Applications that still use Fiber v2 should remain on `github.com/soulteary/version-kit` v1.
 
 ## Installation
 
 ```bash
-go get github.com/soulteary/version-kit/v2
+go get github.com/soulteary/version-kit/v3
 ```
 
 ## Quick Start
@@ -70,7 +51,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -96,7 +77,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -111,10 +92,10 @@ Build with version info:
 
 ```bash
 go build -ldflags "\
-  -X github.com/soulteary/version-kit/v2.Version=1.0.0 \
-  -X github.com/soulteary/version-kit/v2.Commit=$(git rev-parse HEAD) \
-  -X github.com/soulteary/version-kit/v2.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -X github.com/soulteary/version-kit/v2.Branch=$(git rev-parse --abbrev-ref HEAD)" \
+  -X github.com/soulteary/version-kit/v3.Version=1.0.0 \
+  -X github.com/soulteary/version-kit/v3.Commit=$(git rev-parse HEAD) \
+  -X github.com/soulteary/version-kit/v3.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -X github.com/soulteary/version-kit/v3.Branch=$(git rev-parse --abbrev-ref HEAD)" \
   -o myapp
 ```
 
@@ -128,7 +109,7 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -162,8 +143,8 @@ package main
 
 import (
     "github.com/gofiber/fiber/v3"
-    version "github.com/soulteary/version-kit/v2"
-    "github.com/soulteary/version-kit/v2/fiberadapter"
+    version "github.com/soulteary/version-kit/v3"
+    "github.com/soulteary/version-kit/v3/fiberadapter"
 )
 
 func main() {
@@ -200,7 +181,7 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -243,8 +224,8 @@ package main
 
 import (
     "github.com/gofiber/fiber/v3"
-    version "github.com/soulteary/version-kit/v2"
-    "github.com/soulteary/version-kit/v2/fiberadapter"
+    version "github.com/soulteary/version-kit/v3"
+    "github.com/soulteary/version-kit/v3/fiberadapter"
 )
 
 func main() {
@@ -274,7 +255,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -324,7 +305,7 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ### Serving it over Fiber
 
-`github.com/soulteary/version-kit/v2/fiberadapter` — the same set, serving the
+`github.com/soulteary/version-kit/v3/fiberadapter` — the same set, serving the
 same bytes, returning `fiber.Handler`. Importing **this** package is what links
 Fiber into your binary; the root package does not.
 
@@ -506,7 +487,97 @@ fields are unset, so a reduced `Info` renders without a run of empty lines.
 space, colon or newline would produce a malformed header. An invalid prefix falls
 back to `"X-"`.
 
-## Upgrade Notes (v2.2.0)
+## Migrating from v2
+
+### 1. The module path
+
+```bash
+go get github.com/soulteary/version-kit/v3
+```
+
+Then rewrite every import:
+
+```diff
+-version "github.com/soulteary/version-kit/v2"
++version "github.com/soulteary/version-kit/v3"
+```
+
+This applies to **everyone**, including net/http-only services that never touch
+a Fiber handler. `go get -u` will not do it for you — that is what a new major
+version means. v2 stays where it is on `v2.2.0`.
+
+### 2. The ldflags path — this one fails silently
+
+`-X` names a package-level variable by its full import path. Point it at a
+package that no longer exists and the linker says nothing:
+
+```bash
+# WRONG after upgrading: builds fine, exits 0, reports "dev"
+go build -ldflags "-X github.com/soulteary/version-kit/v2.Version=1.0.0" .
+
+# right
+go build -ldflags "-X github.com/soulteary/version-kit/v3.Version=1.0.0" .
+```
+
+There is no error and no warning. The binary builds, passes CI, ships, and
+serves `{"version":"dev"}`. Grep your build scripts, Makefiles, Dockerfiles and
+CI workflows for the old path before you tag a release.
+
+### 3. The Fiber functions moved
+
+```go
+import (
+    version "github.com/soulteary/version-kit/v3"
+    "github.com/soulteary/version-kit/v3/fiberadapter"
+)
+```
+
+| Before | After |
+|---|---|
+| `version.FiberHandler(...)` | `fiberadapter.Handler(...)` |
+| `version.FiberTextHandler(...)` | `fiberadapter.TextHandler(...)` |
+| `version.FiberSimpleHandler()` | `fiberadapter.SimpleHandler()` |
+| `version.FiberMiddleware(...)` | `fiberadapter.Middleware(...)` |
+| `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
+| `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
+
+### 4. Behaviour changes
+
+**Both frameworks — `Info` is read once, when the handler is built.** The
+response body and the version headers are computed at construction and reused
+on every response, so mutating an `Info` after handing it to a handler no
+longer changes what is served:
+
+```go
+info := version.New("1.0.0", "abc1234", "")
+h := version.Handler(version.HandlerConfig{Info: info})
+info.Version = "2.0.0"   // v2 served 2.0.0 here; v3 serves 1.0.0
+```
+
+Finish building the `Info` before you build the handler. `SimpleHandler` is the
+exception — it takes no config and still reads the package variables per
+request.
+
+**Fiber only — `Content-Type` is now `application/json`,** matching net/http.
+Fiber used to answer `application/json; charset=utf-8`; RFC 8259 defines no
+charset parameter for `application/json`.
+
+**Fiber only — `Pretty` now works.** `fiber.Ctx.JSON` always writes compact
+JSON, so a Fiber endpoint configured with `Pretty: true` was silently served
+compact and now comes back indented.
+
+**Fiber only — the body no longer goes through the app's `JSONEncoder`.**
+version-kit encodes it, which is what makes the two frameworks byte-for-byte
+identical; a custom Fiber encoder no longer applies to this endpoint.
+
+### 5. Go 1.27+
+
+`go.mod` declares `go 1.27.0`. v3 will not build on an older toolchain.
+
+## Earlier: build details became opt-in (v2.2.0)
+
+These notes describe a change that landed in v2.2.0 and still holds in v3. If
+you are coming from v2.2.0 or later, you have already dealt with it.
 
 **The default endpoint response is smaller.** That is the fix, and it is the one
 thing to check before upgrading.

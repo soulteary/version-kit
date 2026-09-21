@@ -1,6 +1,6 @@
 # Version Kit
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v2.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v3.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v3)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/soulteary/version-kit/graph/badge.svg)](https://codecov.io/gh/soulteary/version-kit)
@@ -10,30 +10,13 @@
 一个用于 Go 应用程序的版本信息管理工具包。提供结构化的版本信息、HTTP 端点和中间件，同时支持 net/http 和 Fiber 框架。
 
 
-> **v2.3.0 破坏性变更 —— Fiber 支持移入子包。**
-> `Fiber*` 系列函数现位于 `github.com/soulteary/version-kit/v2/fiberadapter`，
-> 于是导入根包不再把 Fiber（以及 fasthttp）链接进用不到它的二进制。
-> 对一个 net/http 服务来说，这意味着**少链接 25 个包、少 11 个模块、二进制小 14%**。
-> Fiber 用户加一行 import、去掉 `Fiber` 前缀即可：
+> **v3 换了模块路径。** 所有 import 都要改成
+> `github.com/soulteary/version-kit/v3` —— `-ldflags -X` 的路径同样要改，
+> 漏掉的话会**静默失效**。Fiber 支持也移入了子包，于是导入根包不再把 Fiber
+> （以及 fasthttp）链接进用不到它的二进制：对一个 net/http 服务来说，
+> 这意味着**少链接 25 个包、少 11 个模块、二进制小 14%**。
 >
-> | 原来 | 现在 |
-> |---|---|
-> | `version.FiberHandler(...)` | `fiberadapter.Handler(...)` |
-> | `version.FiberTextHandler(...)` | `fiberadapter.TextHandler(...)` |
-> | `version.FiberSimpleHandler()` | `fiberadapter.SimpleHandler()` |
-> | `version.FiberMiddleware(...)` | `fiberadapter.Middleware(...)` |
-> | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
-> | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
->
-> 随之有两处响应变化，都在 Fiber 一侧。其一，JSON 端点的 `Content-Type` 现在
-> 两个框架统一为 `application/json`；Fiber 此前返回
-> `application/json; charset=utf-8`，而 net/http 从来不是。其二，
-> `HandlerConfig.Pretty` 在 Fiber 上开始生效了：`fiber.Ctx.JSON` 只写紧凑 JSON，
-> 所以此前配了 `Pretty: true` 的 Fiber 端点（包括下面例子里的那个）一直被静默地
-> 按紧凑返回，现在会缩进。两者都源于响应体改由 version-kit 自己编码，
-> 不再经过 Fiber app 配置的 `JSONEncoder`。
->
-> net/http 一侧没有任何变化。
+> → **[从 v2 迁移](#从-v2-迁移)**
 
 ## 功能特性
 
@@ -49,12 +32,12 @@
 - **Go 1.27+**，用于构建与运行（`go.mod` 声明 `go 1.27.0`）。
 - Fiber API（`fiberadapter.Handler`、`fiberadapter.Middleware` 等）要求 Fiber v3.4.0 或更高版本。
 
-此 v2 模块版本面向 Fiber v3。仍使用 Fiber v2 的应用应继续使用 `github.com/soulteary/version-kit` v1。
+此 v3 模块版本面向 Fiber v3。仍使用 Fiber v2 的应用应继续使用 `github.com/soulteary/version-kit` v1。
 
 ## 安装
 
 ```bash
-go get github.com/soulteary/version-kit/v2
+go get github.com/soulteary/version-kit/v3
 ```
 
 ## 快速开始
@@ -67,7 +50,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -93,7 +76,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -108,10 +91,10 @@ func main() {
 
 ```bash
 go build -ldflags "\
-  -X github.com/soulteary/version-kit/v2.Version=1.0.0 \
-  -X github.com/soulteary/version-kit/v2.Commit=$(git rev-parse HEAD) \
-  -X github.com/soulteary/version-kit/v2.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -X github.com/soulteary/version-kit/v2.Branch=$(git rev-parse --abbrev-ref HEAD)" \
+  -X github.com/soulteary/version-kit/v3.Version=1.0.0 \
+  -X github.com/soulteary/version-kit/v3.Commit=$(git rev-parse HEAD) \
+  -X github.com/soulteary/version-kit/v3.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -X github.com/soulteary/version-kit/v3.Branch=$(git rev-parse --abbrev-ref HEAD)" \
   -o myapp
 ```
 
@@ -125,7 +108,7 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -159,8 +142,8 @@ package main
 
 import (
     "github.com/gofiber/fiber/v3"
-    version "github.com/soulteary/version-kit/v2"
-    "github.com/soulteary/version-kit/v2/fiberadapter"
+    version "github.com/soulteary/version-kit/v3"
+    "github.com/soulteary/version-kit/v3/fiberadapter"
 )
 
 func main() {
@@ -197,7 +180,7 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -239,8 +222,8 @@ package main
 
 import (
     "github.com/gofiber/fiber/v3"
-    version "github.com/soulteary/version-kit/v2"
-    "github.com/soulteary/version-kit/v2/fiberadapter"
+    version "github.com/soulteary/version-kit/v3"
+    "github.com/soulteary/version-kit/v3/fiberadapter"
 )
 
 func main() {
@@ -270,7 +253,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v2"
+    version "github.com/soulteary/version-kit/v3"
 )
 
 func main() {
@@ -320,7 +303,7 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ### 用 Fiber 提供服务
 
-`github.com/soulteary/version-kit/v2/fiberadapter` —— 同一套函数、返回同样的
+`github.com/soulteary/version-kit/v3/fiberadapter` —— 同一套函数、返回同样的
 字节，类型换成 `fiber.Handler`。把 Fiber 链接进二进制的是**这个**包，根包不会。
 
 | 函数 | 对应的 net/http 版本 |
@@ -496,7 +479,92 @@ go tool cover -html=coverage.out   # 带标注的源码
 `-covermode=atomic` 在搭配 `-race` 时是必需的：默认的 `set` 模式不是 race-safe，
 而且 Codecov 读的就是 atomic 计数。
 
-## 升级说明（v2.2.0）
+## 从 v2 迁移
+
+### 1. 模块路径
+
+```bash
+go get github.com/soulteary/version-kit/v3
+```
+
+然后改掉每一处 import：
+
+```diff
+-version "github.com/soulteary/version-kit/v2"
++version "github.com/soulteary/version-kit/v3"
+```
+
+这对**所有人**都适用，包括一行 Fiber 代码都没碰过的纯 net/http 服务。
+`go get -u` 不会帮你做这件事——这正是新主版本的含义。v2 继续停在 `v2.2.0`。
+
+### 2. ldflags 路径——这一条会静默失效
+
+`-X` 是按完整导入路径指定包级变量的。指向一个已经不存在的包时，链接器不会吭声：
+
+```bash
+# 升级后这样写是错的：构建成功、退出码 0、版本是 "dev"
+go build -ldflags "-X github.com/soulteary/version-kit/v2.Version=1.0.0" .
+
+# 正确
+go build -ldflags "-X github.com/soulteary/version-kit/v3.Version=1.0.0" .
+```
+
+没有报错，也没有警告。二进制照样构建、照样过 CI、照样上线，然后对外返回
+`{"version":"dev"}`。发布打标签之前，先在构建脚本、Makefile、Dockerfile 和
+CI 工作流里搜一遍旧路径。
+
+### 3. Fiber 函数移了位置
+
+```go
+import (
+    version "github.com/soulteary/version-kit/v3"
+    "github.com/soulteary/version-kit/v3/fiberadapter"
+)
+```
+
+| 原来 | 现在 |
+|---|---|
+| `version.FiberHandler(...)` | `fiberadapter.Handler(...)` |
+| `version.FiberTextHandler(...)` | `fiberadapter.TextHandler(...)` |
+| `version.FiberSimpleHandler()` | `fiberadapter.SimpleHandler()` |
+| `version.FiberMiddleware(...)` | `fiberadapter.Middleware(...)` |
+| `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
+| `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
+
+### 4. 行为变化
+
+**两个框架都受影响——`Info` 只在构建 handler 时读一次。** 响应体和版本响应头
+都在构造期算好并在每个响应上复用，因此把 `Info` 交给 handler 之后再改它，
+不会再影响实际服务的内容：
+
+```go
+info := version.New("1.0.0", "abc1234", "")
+h := version.Handler(version.HandlerConfig{Info: info})
+info.Version = "2.0.0"   // v2 这里会返回 2.0.0；v3 返回 1.0.0
+```
+
+请先把 `Info` 构造完整，再去构建 handler。`SimpleHandler` 是例外——它不接受
+配置，仍然每次请求都读包变量。
+
+**仅 Fiber——`Content-Type` 现在是 `application/json`**，与 net/http 一致。
+Fiber 此前返回 `application/json; charset=utf-8`；RFC 8259 并没有为
+`application/json` 定义 charset 参数。
+
+**仅 Fiber——`Pretty` 开始生效。** `fiber.Ctx.JSON` 只写紧凑 JSON，所以此前配了
+`Pretty: true` 的 Fiber 端点一直被静默地按紧凑返回，现在会缩进。
+
+**仅 Fiber——响应体不再经过 app 配置的 `JSONEncoder`。** 改由 version-kit 自己
+编码，这正是两个框架能做到逐字节一致的原因；自定义的 Fiber 编码器对这个端点
+不再生效。
+
+### 5. 需要 Go 1.27+
+
+`go.mod` 声明的是 `go 1.27.0`，v3 在更低版本的工具链上构建不了。
+
+## 更早的变更：构建详情改为 opt-in（v2.2.0）
+
+下面这些是 v2.2.0 引入、在 v3 中依然成立的说明。如果你是从 v2.2.0 或更新的
+版本升上来的，这部分你已经处理过了。
 
 **端点的默认响应变小了。** 这正是本次修复，也是升级前唯一需要确认的一点。
 

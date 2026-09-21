@@ -14,7 +14,7 @@ package fiberadapter
 import (
 	"github.com/gofiber/fiber/v3"
 
-	version "github.com/soulteary/version-kit/v2"
+	version "github.com/soulteary/version-kit/v3"
 )
 
 // Handler returns a Fiber handler that serves version information.
