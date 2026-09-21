@@ -3,6 +3,56 @@
 Notable changes per release. This file starts at v3.0.0; for the v1 and v2
 history before that, see the [tags](https://github.com/soulteary/version-kit/tags).
 
+## v4.0.0
+
+A new major version, which in Go means a new module path. **Every import
+changes, and so does the `-ldflags -X` path.** See
+[Migrating from v3](README.md#migrating-from-v3) — the ldflags step fails
+silently if you miss it, exactly as it did in v3.
+
+The one thing v4 does is finish what v3 started. v3 moved Fiber out of the root
+package so a net/http service would not link fasthttp; it left `net/http` itself
+in the root, where it cost **124 of the 200 packages** every importer paid for —
+including the CLIs printing `--version` that are most of this kit's use.
+
+### Breaking
+
+- **Module path is now `github.com/soulteary/version-kit/v4`.** `go get -u` will
+  not move a v3 project here; v3 stays on `v3.0.0`.
+- **The net/http handlers moved to `httpadapter`.** `Handler`, `TextHandler`,
+  `SimpleHandler`, `Middleware`, `MiddlewareWithConfig` and `RegisterEndpoint`
+  are gone from the root package; `github.com/soulteary/version-kit/v4/httpadapter`
+  has the same six under the same names, taking `version.HandlerConfig`.
+  Compatibility shims were not an option — a shim imports `net/http`, which is
+  the whole thing being moved out.
+
+  For a program that imports only the root package: **200 → 76 linked packages
+  and 3,723,527 → 1,745,056 bytes, a 53% smaller binary** (`-trimpath
+  -ldflags="-s -w"`, linux/amd64).
+
+### Not breaking
+
+- **`HandlerConfig` and the rest of the configuration API stayed put.**
+  `ResolveConfig`, `DefaultHandlerConfig`, `Info`, `New`, `Default`,
+  `NewBuilder`, and the `Payload` / `TextPayload` / `JSONResponse` / `Headers` /
+  `Normalized` methods are all still in the root package with their v3
+  signatures. They decide *what* is served and contain no `net/http`, which is
+  why they could stay — and why a service on Echo, Gin or chi that writes its
+  own two-line adapter needs no source change at all beyond the import path.
+- **`fiberadapter` is unchanged** apart from its own import path. It reads the
+  same root-package configuration it always did, so Fiber and net/http still
+  cannot drift apart; `parity_test.go` now asserts that against `httpadapter`.
+- **No behaviour, signature or response byte changed.**
+
+### Added
+
+- `TestRootPackageStaysDependencyFree` replaces `TestRootPackageDoesNotDependOnFiber`
+  and now guards `net/http` as well. The old test existed because re-adding a
+  Fiber import to the root package compiles and passes everything else; the same
+  is true of `net/http`, and more tempting — reaching for `http.StatusOK` as a
+  constant is enough to undo the split. The two status codes `JSONResponse`
+  returns are written out as literals for that reason, with a comment saying so.
+
 ## v3.0.0
 
 A new major version, which in Go means a new module path. **Every import

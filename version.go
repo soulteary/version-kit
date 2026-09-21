@@ -1,6 +1,17 @@
-// Package version provides application version information management.
-// Includes version number, build time, Git commit hash, and HTTP endpoints
-// for exposing version information in APIs.
+// Package version provides application version information management:
+// version number, build time, Git commit hash and runtime details, plus the
+// rules that decide what a version endpoint serves.
+//
+// It depends on nothing outside the standard library, and deliberately does
+// not import net/http. The handlers themselves live in subpackages --
+// httpadapter for net/http, fiberadapter for Fiber v3 -- so a binary that only
+// prints its version, which is most of what this package is used for, does not
+// link a web server it never starts.
+//
+// What the handlers serve is decided here, by HandlerConfig: Payload,
+// TextPayload, JSONResponse and Headers are exported so that an adapter for
+// Echo, Gin or chi is a couple of lines and shares one build-detail policy
+// with the two that ship.
 package version
 
 import (
@@ -11,7 +22,7 @@ import (
 )
 
 // Default version variables - can be overridden via ldflags during build.
-// Example: go build -ldflags "-X github.com/soulteary/version-kit/v3.Version=1.0.0"
+// Example: go build -ldflags "-X github.com/soulteary/version-kit/v4.Version=1.0.0"
 var (
 	// Version is the application version number
 	Version = "dev"

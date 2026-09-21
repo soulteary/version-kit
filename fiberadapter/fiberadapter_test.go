@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	version "github.com/soulteary/version-kit/v3"
-	"github.com/soulteary/version-kit/v3/fiberadapter"
+	version "github.com/soulteary/version-kit/v4"
+	"github.com/soulteary/version-kit/v4/fiberadapter"
 )
 
 func TestFiberHandler(t *testing.T) {

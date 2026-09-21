@@ -1,4 +1,4 @@
-module github.com/soulteary/version-kit/v3
+module github.com/soulteary/version-kit/v4
 
 go 1.27.0
 

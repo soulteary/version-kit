@@ -14,11 +14,11 @@ package fiberadapter
 import (
 	"github.com/gofiber/fiber/v3"
 
-	version "github.com/soulteary/version-kit/v3"
+	version "github.com/soulteary/version-kit/v4"
 )
 
 // Handler returns a Fiber handler that serves version information.
-// It is the Fiber counterpart of version.Handler.
+// It is the Fiber counterpart of httpadapter.Handler.
 func Handler(config ...version.HandlerConfig) fiber.Handler {
 	cfg := version.ResolveConfig(config...)
 	headers := cfg.Headers()
@@ -46,13 +46,13 @@ func Handler(config ...version.HandlerConfig) fiber.Handler {
 }
 
 // RegisterEndpoint registers the version handler on a Fiber app.
-// It is the Fiber counterpart of version.RegisterEndpoint.
+// It is the Fiber counterpart of httpadapter.RegisterEndpoint.
 func RegisterEndpoint(app *fiber.App, path string, config ...version.HandlerConfig) {
 	app.Get(path, Handler(config...))
 }
 
 // Middleware returns a Fiber middleware that adds version headers to all
-// responses. It follows the same build-detail policy as version.Middleware:
+// responses. It follows the same build-detail policy as httpadapter.Middleware:
 // only the public fields, because these headers ride on every response.
 func Middleware(info *version.Info, prefix string) fiber.Handler {
 	return MiddlewareWithConfig(version.HandlerConfig{Info: info, HeaderPrefix: prefix})
@@ -70,7 +70,7 @@ func MiddlewareWithConfig(config version.HandlerConfig) fiber.Handler {
 }
 
 // TextHandler returns a Fiber handler that serves version information as plain
-// text. It is the Fiber counterpart of version.TextHandler.
+// text. It is the Fiber counterpart of httpadapter.TextHandler.
 func TextHandler(config ...version.HandlerConfig) fiber.Handler {
 	cfg := version.ResolveConfig(config...)
 	headers := cfg.Headers()
@@ -88,7 +88,7 @@ func TextHandler(config ...version.HandlerConfig) fiber.Handler {
 }
 
 // SimpleHandler returns a minimal Fiber handler that just returns the version
-// string. It is the Fiber counterpart of version.SimpleHandler.
+// string. It is the Fiber counterpart of httpadapter.SimpleHandler.
 func SimpleHandler() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		c.Set("Content-Type", "text/plain; charset=utf-8")
