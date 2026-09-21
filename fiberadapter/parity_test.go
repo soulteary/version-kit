@@ -20,8 +20,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	version "github.com/soulteary/version-kit/v2"
-	"github.com/soulteary/version-kit/v2/fiberadapter"
+	version "github.com/soulteary/version-kit/v3"
+	"github.com/soulteary/version-kit/v3/fiberadapter"
 )
 
 // serveFiber runs one request through a Fiber app carrying h.
