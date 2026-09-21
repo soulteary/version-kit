@@ -9,6 +9,35 @@
 
 A version information management toolkit for Go applications. Provides structured version info, HTTP endpoints, and middleware for both net/http and Fiber.
 
+
+> **Breaking in v2.3.0 — Fiber support moved to a subpackage.**
+> The `Fiber*` functions are now `github.com/soulteary/version-kit/v2/fiberadapter`,
+> so importing the root package no longer links Fiber (and fasthttp) into
+> binaries that never use it. In a net/http service that means **25 fewer
+> linked packages, 11 fewer modules and a 14% smaller binary**.
+> Fiber users add one import and drop the `Fiber` prefix:
+>
+> | Before | After |
+> |---|---|
+> | `version.FiberHandler(...)` | `fiberadapter.Handler(...)` |
+> | `version.FiberTextHandler(...)` | `fiberadapter.TextHandler(...)` |
+> | `version.FiberSimpleHandler()` | `fiberadapter.SimpleHandler()` |
+> | `version.FiberMiddleware(...)` | `fiberadapter.Middleware(...)` |
+> | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
+> | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
+>
+> Two response changes come with it, both on the Fiber side. The JSON endpoint
+> now answers `Content-Type: application/json` on both frameworks; Fiber used
+> to answer `application/json; charset=utf-8`, which net/http never did. And
+> `HandlerConfig.Pretty` now works there: `fiber.Ctx.JSON` always writes
+> compact JSON, so a Fiber endpoint configured with `Pretty: true` -- including
+> the one in the example below -- was silently served compact and now comes
+> back indented. Both follow from the body being encoded by version-kit rather
+> than by the Fiber app's configured `JSONEncoder`, which this endpoint no
+> longer goes through.
+>
+> Nothing on the net/http side changed.
+
 ## Features
 
 - **Version Information**: Structured version info with version, commit, build date, branch, and runtime details
@@ -21,7 +50,7 @@ A version information management toolkit for Go applications. Provides structure
 ## Requirements
 
 - **Go 1.27+** for building and running (`go.mod` declares `go 1.27.0`).
-- Fiber APIs (`FiberHandler`, `FiberMiddleware`, etc.) require Fiber v3.4.0 or later.
+- Fiber APIs (`fiberadapter.Handler`, `fiberadapter.Middleware`, etc.) require Fiber v3.4.0 or later.
 
 This v2 module line targets Fiber v3. Applications that still use Fiber v2 should remain on `github.com/soulteary/version-kit` v1.
 
@@ -134,6 +163,7 @@ package main
 import (
     "github.com/gofiber/fiber/v3"
     version "github.com/soulteary/version-kit/v2"
+    "github.com/soulteary/version-kit/v2/fiberadapter"
 )
 
 func main() {
@@ -142,19 +172,19 @@ func main() {
     app := fiber.New()
     
     // Register JSON endpoint
-    version.RegisterEndpointFiber(app, "/version", version.HandlerConfig{
+    fiberadapter.RegisterEndpoint(app, "/version", version.HandlerConfig{
         Info:   info,
         Pretty: true,
     })
     
     // Or use handler directly
-    app.Get("/v", version.FiberHandler(version.HandlerConfig{Info: info}))
+    app.Get("/v", fiberadapter.Handler(version.HandlerConfig{Info: info}))
     
     // Text format endpoint
-    app.Get("/version.txt", version.FiberTextHandler(version.HandlerConfig{Info: info}))
+    app.Get("/version.txt", fiberadapter.TextHandler(version.HandlerConfig{Info: info}))
     
     // Simple version string
-    app.Get("/v/simple", version.FiberSimpleHandler())
+    app.Get("/v/simple", fiberadapter.SimpleHandler())
     
     app.Listen(":3000")
 }
@@ -214,6 +244,7 @@ package main
 import (
     "github.com/gofiber/fiber/v3"
     version "github.com/soulteary/version-kit/v2"
+    "github.com/soulteary/version-kit/v2/fiberadapter"
 )
 
 func main() {
@@ -223,9 +254,9 @@ func main() {
     
     // Add public version headers to all responses.
     // For X-Commit / X-Build-Date use:
-    //   version.FiberMiddlewareWithConfig(version.HandlerConfig{
+    //   fiberadapter.MiddlewareWithConfig(version.HandlerConfig{
     //       Info: info, HeaderPrefix: "X-", IncludeBuildDetails: true})
-    app.Use(version.FiberMiddleware(info, "X-"))
+    app.Use(fiberadapter.Middleware(info, "X-"))
     
     app.Get("/", func(c fiber.Ctx) error {
         return c.SendString("Hello")
@@ -280,8 +311,8 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 | `NewBuilder() *Builder` | Returns a builder for constructing `Info` with a fluent API. |
 | `Middleware(info *Info, prefix string) func(http.Handler) http.Handler` | Adds the **public** version headers (`X-Version`, `X-Branch`) to every response. |
 | `MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler` | Same, with the full `HandlerConfig`; set `IncludeBuildDetails` for `X-Commit` and `X-Build-Date`. |
-| `FiberMiddleware(info *Info, prefix string) fiber.Handler` | Fiber form of `Middleware`. |
-| `FiberMiddlewareWithConfig(config HandlerConfig) fiber.Handler` | Fiber form of `MiddlewareWithConfig`. |
+| `fiberadapter.Middleware(info *Info, prefix string) fiber.Handler` | Fiber form of `Middleware`. |
+| `fiberadapter.MiddlewareWithConfig(config HandlerConfig) fiber.Handler` | Fiber form of `MiddlewareWithConfig`. |
 
 ### Info Methods
 
@@ -412,7 +443,7 @@ back to `"X-"`.
 **The default endpoint response is smaller.** That is the fix, and it is the one
 thing to check before upgrading.
 
-- **Build details are withheld by default.** `Handler`, `FiberHandler`,
+- **Build details are withheld by default.** `Handler`, `fiberadapter.Handler`,
   `TextHandler` and the version-header middleware served the full `Info` — Go
   runtime version, commit, build date, platform and compiler. The endpoint is
   usually unauthenticated, and `Middleware` put the same data on **every
@@ -422,7 +453,7 @@ thing to check before upgrading.
   `commit`, `build_date` or `go_version` from `/version`, set
   `IncludeBuildDetails: true`** and put that endpoint behind authentication or on
   an internal route.
-- **`MiddlewareWithConfig` and `FiberMiddlewareWithConfig` are new.**
+- **`MiddlewareWithConfig` and `fiberadapter.MiddlewareWithConfig` are new.**
   `Middleware(info, prefix)` keeps its signature and now emits only the public
   headers; use the `WithConfig` forms with `IncludeBuildDetails` to get
   `X-Commit` and `X-Build-Date` back.
