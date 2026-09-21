@@ -26,9 +26,15 @@ A version information management toolkit for Go applications. Provides structure
 > | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
 > | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
 >
-> One response change comes with it: the JSON endpoint now answers
-> `Content-Type: application/json` on both frameworks. Fiber used to answer
-> `application/json; charset=utf-8`, which net/http never did.
+> Two response changes come with it, both on the Fiber side. The JSON endpoint
+> now answers `Content-Type: application/json` on both frameworks; Fiber used
+> to answer `application/json; charset=utf-8`, which net/http never did. And
+> `HandlerConfig.Pretty` now works there: `fiber.Ctx.JSON` always writes
+> compact JSON, so a Fiber endpoint configured with `Pretty: true` -- including
+> the one in the example below -- was silently served compact and now comes
+> back indented. Both follow from the body being encoded by version-kit rather
+> than by the Fiber app's configured `JSONEncoder`, which this endpoint no
+> longer goes through.
 >
 > Nothing on the net/http side changed.
 

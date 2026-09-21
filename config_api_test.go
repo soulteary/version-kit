@@ -1,6 +1,10 @@
 package version
 
 import (
+	"bytes"
+	"encoding/json"
+	"maps"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -103,6 +107,70 @@ func TestPayloadReducesUnlessBuildDetailsAreAsked(t *testing.T) {
 	full := HandlerConfig{Info: info, IncludeBuildDetails: true}.Payload()
 	if full.Commit != "abcdef1234567890" || full.GoVersion == "" {
 		t.Errorf("Payload() withheld build detail that was asked for: %+v", full)
+	}
+}
+
+func TestJSONResponseHonoursPretty(t *testing.T) {
+	info := NewWithBranch("1.2.3", "abcdef1234567890", "2026-01-02T03:04:05Z", "main")
+
+	compact, status := HandlerConfig{Info: info}.JSONResponse()
+	if status != http.StatusOK {
+		t.Errorf("status = %d, want %d", status, http.StatusOK)
+	}
+	if bytes.Contains(compact, []byte("\n")) {
+		t.Errorf("compact body = %s, want no newlines", compact)
+	}
+
+	pretty, status := HandlerConfig{Info: info, Pretty: true}.JSONResponse()
+	if status != http.StatusOK {
+		t.Errorf("status = %d, want %d", status, http.StatusOK)
+	}
+	if !bytes.Contains(pretty, []byte("\n  ")) {
+		t.Errorf("pretty body = %s, want it indented", pretty)
+	}
+
+	// Same document either way -- Pretty is presentation, not policy.
+	var a, b map[string]any
+	if err := json.Unmarshal(compact, &a); err != nil {
+		t.Fatalf("decode compact: %v", err)
+	}
+	if err := json.Unmarshal(pretty, &b); err != nil {
+		t.Fatalf("decode pretty: %v", err)
+	}
+	if !maps.Equal(a, b) {
+		t.Errorf("compact = %v, pretty = %v", a, b)
+	}
+}
+
+func TestJSONResponseFollowsTheBuildDetailPolicy(t *testing.T) {
+	info := NewWithBranch("1.2.3", "abcdef1234567890", "2026-01-02T03:04:05Z", "main")
+
+	body, _ := HandlerConfig{Info: info}.JSONResponse()
+
+	var served map[string]any
+	if err := json.Unmarshal(body, &served); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	for _, field := range []string{"commit", "build_date", "go_version", "platform", "compiler"} {
+		if value, ok := served[field]; ok {
+			t.Errorf("%s = %v, want it withheld without IncludeBuildDetails", field, value)
+		}
+	}
+}
+
+func TestJSONResponseOnZeroConfig(t *testing.T) {
+	body, status := HandlerConfig{}.JSONResponse()
+
+	if status != http.StatusOK {
+		t.Errorf("status = %d, want %d", status, http.StatusOK)
+	}
+
+	var served map[string]any
+	if err := json.Unmarshal(body, &served); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	if served["version"] != Version {
+		t.Errorf("version = %v, want %q from Default()", served["version"], Version)
 	}
 }
 

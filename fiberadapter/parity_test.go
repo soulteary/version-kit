@@ -6,9 +6,7 @@
 // than quietly widening it. Both are invisible to statement coverage -- the
 // package reaches 100% without either -- because opting build details in runs
 // exactly the same lines as leaving them out.
-//
-// TestPrettyIsNotHonoured is the exception: it pins a known gap rather than a
-// wanted behaviour, so that closing it shows up as a failing test.
+
 package fiberadapter_test
 
 import (
@@ -17,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -219,11 +218,10 @@ func TestMiddlewareNormalizesInvalidPrefix(t *testing.T) {
 	}
 }
 
-// TestPrettyIsNotHonoured pins a known gap rather than a wanted behaviour:
-// fiber.Ctx.JSON always writes compact JSON, so HandlerConfig.Pretty reaches
-// the Fiber side and does nothing, while net/http honours it. Whoever closes
-// that gap should see this fail and delete it.
-func TestPrettyIsNotHonoured(t *testing.T) {
+// Pretty used to reach the Fiber side and do nothing, because fiber.Ctx.JSON
+// always writes compact JSON. The body now comes from the root package, so
+// both frameworks indent -- and both stop if either regresses.
+func TestPrettyMatchesNetHTTP(t *testing.T) {
 	info := version.New("1.0.0", "abcdef1234567890", "2026-01-02T03:04:05Z")
 	config := version.HandlerConfig{Info: info, Pretty: true, IncludeBuildDetails: true}
 
@@ -234,12 +232,52 @@ func TestPrettyIsNotHonoured(t *testing.T) {
 	version.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 	std := rec.Body.String()
 
-	if strings.Contains(got, "\n") {
-		t.Errorf("Fiber honoured Pretty after all; drop this test and the comment in Handler:\n%s", got)
+	if !strings.Contains(std, "\n  ") {
+		t.Fatalf("net/http stopped honouring Pretty, which is a regression on its own:\n%s", std)
 	}
-	if !strings.Contains(std, "\n") {
-		t.Errorf("net/http stopped honouring Pretty, which is a regression on its own:\n%s", std)
+	if got != std {
+		t.Errorf("Pretty body:\n fiber    = %q\n net/http = %q", got, std)
 	}
+}
+
+// Handler hands fasthttp the same precomputed slice on every request, without
+// copying it. Nothing may write into it -- run with -race, where a concurrent
+// write would show up.
+func TestConcurrentRequestsShareTheBodySafely(t *testing.T) {
+	info := version.NewWithBranch("1.0.0", "abcdef1234567890", "2026-01-02T03:04:05Z", "main")
+	config := version.HandlerConfig{Info: info, IncludeBuildDetails: true}
+
+	app := fiber.New()
+	app.Get("/version", fiberadapter.Handler(config))
+
+	rec := httptest.NewRecorder()
+	version.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	want := rec.Body.String()
+
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/version", nil))
+			if err != nil {
+				t.Errorf("app.Test: %v", err)
+				return
+			}
+			defer func() { _ = resp.Body.Close() }()
+
+			got, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("read body: %v", err)
+				return
+			}
+			if string(got) != want {
+				t.Errorf("body = %q, want %q", got, want)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // fiber.Ctx.JSON defaults to "application/json; charset=utf-8" and overwrites

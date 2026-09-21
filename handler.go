@@ -11,10 +11,12 @@ type HandlerConfig struct {
 	// Info is the version information to return.
 	// If nil, Default() will be used.
 	//
-	// The version headers are computed once, when the handler or middleware
-	// is built, and reused on every response -- mutating an Info afterwards
-	// does not change them. That was already a data race, so nothing which
-	// was safe before stopped working.
+	// The response body and the version headers are both computed once, when
+	// the handler or middleware is built, and reused on every response --
+	// mutating an Info afterwards does not change what is served. That was
+	// already a data race, so nothing which was safe before stopped working.
+	// SimpleHandler is the exception: it takes no config and still reads the
+	// package variables per request.
 	Info *Info
 
 	// Pretty enables pretty-printed JSON output.
@@ -97,6 +99,38 @@ func (c HandlerConfig) TextPayload() string {
 	return c.Info.Public().Full()
 }
 
+// JSONResponse returns the JSON body the handlers serve and the status to
+// serve it with: Payload marshalled, indented when Pretty is set.
+//
+// Exported for the same reason Payload is. An adapter that hands its framework
+// the Info instead inherits whatever encoder that framework happens to be
+// configured with, and gets Pretty only if that framework offers it -- which
+// is how Fiber came to ignore Pretty while net/http honoured it.
+//
+// The status comes back with the body because the failure has to be decided
+// somewhere, and one place is the point: marshalling an Info cannot actually
+// fail -- every field is a string -- but an adapter should not have to guess
+// what to serve if it ever did. Callers write the two values out and have
+// nothing left to decide.
+func (c HandlerConfig) JSONResponse() (body []byte, status int) {
+	var (
+		output []byte
+		err    error
+	)
+
+	if c.Pretty {
+		output, err = json.MarshalIndent(c.Payload(), "", "  ")
+	} else {
+		output, err = json.Marshal(c.Payload())
+	}
+
+	if err != nil {
+		return []byte(`{"error": "failed to marshal version info"}`), http.StatusInternalServerError
+	}
+
+	return output, http.StatusOK
+}
+
 // Normalized applies the defaults every handler and middleware uses: a nil Info
 // becomes Default(), and a header prefix that is not a token becomes "X-".
 func (c HandlerConfig) Normalized() HandlerConfig {
@@ -152,6 +186,7 @@ func DefaultHandlerConfig() HandlerConfig {
 func Handler(config ...HandlerConfig) http.HandlerFunc {
 	cfg := ResolveConfig(config...)
 	headers := cfg.Headers()
+	output, status := cfg.JSONResponse()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -160,21 +195,7 @@ func Handler(config ...HandlerConfig) http.HandlerFunc {
 			setVersionHeaders(w.Header(), headers)
 		}
 
-		var output []byte
-		var err error
-
-		if cfg.Pretty {
-			output, err = json.MarshalIndent(cfg.Payload(), "", "  ")
-		} else {
-			output, err = json.Marshal(cfg.Payload())
-		}
-
-		if err != nil {
-			http.Error(w, `{"error": "failed to marshal version info"}`, http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(status)
 		_, _ = w.Write(output)
 	}
 }
@@ -231,6 +252,7 @@ func MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler 
 func TextHandler(config ...HandlerConfig) http.HandlerFunc {
 	cfg := ResolveConfig(config...)
 	headers := cfg.Headers()
+	output := []byte(cfg.TextPayload())
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -240,7 +262,7 @@ func TextHandler(config ...HandlerConfig) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(cfg.TextPayload()))
+		_, _ = w.Write(output)
 	}
 }
 

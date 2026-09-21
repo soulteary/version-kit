@@ -25,9 +25,13 @@
 > | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
 > | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
 >
-> 随之还有一处响应变化：JSON 端点的 `Content-Type` 现在两个框架统一为
-> `application/json`。Fiber 此前返回 `application/json; charset=utf-8`，
-> 而 net/http 从来不是。
+> 随之有两处响应变化，都在 Fiber 一侧。其一，JSON 端点的 `Content-Type` 现在
+> 两个框架统一为 `application/json`；Fiber 此前返回
+> `application/json; charset=utf-8`，而 net/http 从来不是。其二，
+> `HandlerConfig.Pretty` 在 Fiber 上开始生效了：`fiber.Ctx.JSON` 只写紧凑 JSON，
+> 所以此前配了 `Pretty: true` 的 Fiber 端点（包括下面例子里的那个）一直被静默地
+> 按紧凑返回，现在会缩进。两者都源于响应体改由 version-kit 自己编码，
+> 不再经过 Fiber app 配置的 `JSONEncoder`。
 >
 > net/http 一侧没有任何变化。
 

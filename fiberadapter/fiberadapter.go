@@ -22,21 +22,26 @@ import (
 func Handler(config ...version.HandlerConfig) fiber.Handler {
 	cfg := version.ResolveConfig(config...)
 	headers := cfg.Headers()
+	output, status := cfg.JSONResponse()
 
 	return func(c fiber.Ctx) error {
+		c.Set("Content-Type", fiber.MIMEApplicationJSON)
+
 		if cfg.IncludeHeaders {
 			setHeaders(c, headers)
 		}
 
-		// HandlerConfig.Pretty has never taken effect on the Fiber side:
-		// fiber.Ctx.JSON always writes compact JSON. Kept as-is so this change
-		// stays a pure move; see the PR for the follow-up.
+		// The body and status come from the root package rather than c.JSON,
+		// which would re-encode the Info per request with whatever JSONEncoder
+		// the app was configured with, and would ignore HandlerConfig.Pretty
+		// because it always writes compact JSON. Sending the bytes the
+		// net/http handler would send makes the two byte-identical.
 		//
-		// The Content-Type is handed to JSON rather than set beforehand,
-		// because JSON overwrites it either way. Left to its default, Fiber
-		// answers "application/json; charset=utf-8" where net/http answers
-		// "application/json" -- and RFC 8259 defines no charset parameter.
-		return c.JSON(cfg.Payload(), fiber.MIMEApplicationJSON)
+		// c.Send hands the slice to fasthttp without copying, so output is
+		// written once here and only ever read afterwards.
+		c.Status(status)
+
+		return c.Send(output)
 	}
 }
 
@@ -69,6 +74,7 @@ func MiddlewareWithConfig(config version.HandlerConfig) fiber.Handler {
 func TextHandler(config ...version.HandlerConfig) fiber.Handler {
 	cfg := version.ResolveConfig(config...)
 	headers := cfg.Headers()
+	output := cfg.TextPayload()
 
 	return func(c fiber.Ctx) error {
 		c.Set("Content-Type", "text/plain; charset=utf-8")
@@ -77,7 +83,7 @@ func TextHandler(config ...version.HandlerConfig) fiber.Handler {
 			setHeaders(c, headers)
 		}
 
-		return c.SendString(cfg.TextPayload())
+		return c.SendString(output)
 	}
 }
 
