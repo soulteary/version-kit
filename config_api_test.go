@@ -259,3 +259,20 @@ func TestHeadersOmitUnknownCommitAndBuildDate(t *testing.T) {
 		t.Errorf(`Headers() emitted X-Build-Date for a build date of "unknown": %v`, headers)
 	}
 }
+
+func TestDefaultHandlerConfig(t *testing.T) {
+	cfg := DefaultHandlerConfig()
+
+	if cfg.Info == nil {
+		t.Fatal("Info is nil, want the package defaults")
+	}
+	if cfg.Pretty {
+		t.Error("Pretty is true, want false")
+	}
+	if cfg.IncludeHeaders {
+		t.Error("IncludeHeaders is true, want false")
+	}
+	if cfg.HeaderPrefix != "X-" {
+		t.Errorf("HeaderPrefix = %q, want %q", cfg.HeaderPrefix, "X-")
+	}
+}

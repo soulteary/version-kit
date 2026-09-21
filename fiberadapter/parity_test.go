@@ -20,8 +20,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	version "github.com/soulteary/version-kit/v3"
-	"github.com/soulteary/version-kit/v3/fiberadapter"
+	version "github.com/soulteary/version-kit/v4"
+	"github.com/soulteary/version-kit/v4/fiberadapter"
+	"github.com/soulteary/version-kit/v4/httpadapter"
 )
 
 // serveFiber runs one request through a Fiber app carrying h.
@@ -135,7 +136,7 @@ func TestVersionHeadersMatchNetHTTP(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			version.Handler(tc.config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+			httpadapter.Handler(tc.config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 			std := rec.Result()
 			defer func() { _ = std.Body.Close() }()
 
@@ -229,7 +230,7 @@ func TestPrettyMatchesNetHTTP(t *testing.T) {
 	got := body(t, resp)
 
 	rec := httptest.NewRecorder()
-	version.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	httpadapter.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 	std := rec.Body.String()
 
 	if !strings.Contains(std, "\n  ") {
@@ -251,7 +252,7 @@ func TestConcurrentRequestsShareTheBodySafely(t *testing.T) {
 	app.Get("/version", fiberadapter.Handler(config))
 
 	rec := httptest.NewRecorder()
-	version.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	httpadapter.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 	want := rec.Body.String()
 
 	var wg sync.WaitGroup
@@ -291,7 +292,7 @@ func TestJSONContentTypeMatchesNetHTTP(t *testing.T) {
 	resp := serveFiber(t, "/version", fiberadapter.Handler(config))
 
 	rec := httptest.NewRecorder()
-	version.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	httpadapter.Handler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 
 	if got, want := rec.Header().Get("Content-Type"), "application/json"; got != want {
 		t.Errorf("net/http Content-Type = %q, want %q", got, want)
@@ -309,7 +310,7 @@ func TestTextContentTypeMatchesNetHTTP(t *testing.T) {
 	resp := serveFiber(t, "/version", fiberadapter.TextHandler(config))
 
 	rec := httptest.NewRecorder()
-	version.TextHandler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	httpadapter.TextHandler(config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 
 	if got, want := resp.Header.Get("Content-Type"), rec.Header().Get("Content-Type"); got != want {
 		t.Errorf("fiber Content-Type = %q, net/http = %q", got, want)
@@ -332,14 +333,14 @@ func TestBodiesMatchNetHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			jsonResp := serveFiber(t, "/version", fiberadapter.Handler(tc.config))
 			rec := httptest.NewRecorder()
-			version.Handler(tc.config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+			httpadapter.Handler(tc.config)(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 			if got, want := body(t, jsonResp), rec.Body.String(); got != want {
 				t.Errorf("JSON body:\n fiber    = %s\n net/http = %s", got, want)
 			}
 
 			textResp := serveFiber(t, "/version.txt", fiberadapter.TextHandler(tc.config))
 			rec = httptest.NewRecorder()
-			version.TextHandler(tc.config)(rec, httptest.NewRequest(http.MethodGet, "/version.txt", nil))
+			httpadapter.TextHandler(tc.config)(rec, httptest.NewRequest(http.MethodGet, "/version.txt", nil))
 			if got, want := body(t, textResp), rec.Body.String(); got != want {
 				t.Errorf("text body:\n fiber    = %q\n net/http = %q", got, want)
 			}
@@ -359,7 +360,7 @@ func TestSimpleHandlerMatchesNetHTTP(t *testing.T) {
 	resp := serveFiber(t, "/version", fiberadapter.SimpleHandler())
 
 	rec := httptest.NewRecorder()
-	version.SimpleHandler()(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
+	httpadapter.SimpleHandler()(rec, httptest.NewRequest(http.MethodGet, "/version", nil))
 
 	got := body(t, resp)
 	if want := rec.Body.String(); got != want {

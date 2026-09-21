@@ -1,4 +1,4 @@
-package version
+package httpadapter
 
 import (
 	"encoding/json"
@@ -9,11 +9,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	version "github.com/soulteary/version-kit/v4"
 )
 
 func TestHandler(t *testing.T) {
-	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
-	handler := Handler(HandlerConfig{Info: info, IncludeBuildDetails: true})
+	info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+	handler := Handler(version.HandlerConfig{Info: info, IncludeBuildDetails: true})
 
 	req := httptest.NewRequest(http.MethodGet, "/version", nil)
 	w := httptest.NewRecorder()
@@ -29,7 +31,7 @@ func TestHandler(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	var parsed Info
+	var parsed version.Info
 	err = json.Unmarshal(body, &parsed)
 	require.NoError(t, err)
 
@@ -54,7 +56,7 @@ func TestHandler_DefaultConfig(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	var parsed Info
+	var parsed version.Info
 	err = json.Unmarshal(body, &parsed)
 	require.NoError(t, err)
 
@@ -63,8 +65,8 @@ func TestHandler_DefaultConfig(t *testing.T) {
 }
 
 func TestHandler_WithHeaders(t *testing.T) {
-	info := NewWithBranch("1.0.0", "abc1234567890", "2025-01-01T00:00:00Z", "main")
-	handler := Handler(HandlerConfig{
+	info := version.NewWithBranch("1.0.0", "abc1234567890", "2025-01-01T00:00:00Z", "main")
+	handler := Handler(version.HandlerConfig{
 		Info:                info,
 		IncludeHeaders:      true,
 		HeaderPrefix:        "X-App-",
@@ -86,8 +88,8 @@ func TestHandler_WithHeaders(t *testing.T) {
 }
 
 func TestHandler_WithHeaders_SanitizesValues(t *testing.T) {
-	info := NewWithBranch("1.0.0\r\n", "abc1234567890", "2025-01-01T00:00:00Z\r\n", "main\r\n")
-	handler := Handler(HandlerConfig{
+	info := version.NewWithBranch("1.0.0\r\n", "abc1234567890", "2025-01-01T00:00:00Z\r\n", "main\r\n")
+	handler := Handler(version.HandlerConfig{
 		Info:                info,
 		IncludeHeaders:      true,
 		HeaderPrefix:        "X-App-",
@@ -108,8 +110,8 @@ func TestHandler_WithHeaders_SanitizesValues(t *testing.T) {
 }
 
 func TestHandler_Pretty(t *testing.T) {
-	info := New("1.0.0", "abc123", "")
-	handler := Handler(HandlerConfig{
+	info := version.New("1.0.0", "abc123", "")
+	handler := Handler(version.HandlerConfig{
 		Info:                info,
 		Pretty:              true,
 		IncludeBuildDetails: true,
@@ -132,8 +134,8 @@ func TestHandler_Pretty(t *testing.T) {
 }
 
 func TestTextHandler(t *testing.T) {
-	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
-	handler := TextHandler(HandlerConfig{Info: info, IncludeBuildDetails: true})
+	info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+	handler := TextHandler(version.HandlerConfig{Info: info, IncludeBuildDetails: true})
 
 	req := httptest.NewRequest(http.MethodGet, "/version", nil)
 	w := httptest.NewRecorder()
@@ -155,15 +157,15 @@ func TestTextHandler(t *testing.T) {
 
 func TestSimpleHandler(t *testing.T) {
 	// Save and restore original values
-	origVersion := Version
-	origCommit := Commit
+	origVersion := version.Version
+	origCommit := version.Commit
 	defer func() {
-		Version = origVersion
-		Commit = origCommit
+		version.Version = origVersion
+		version.Commit = origCommit
 	}()
 
-	Version = "2.0.0"
-	Commit = "xyz789"
+	version.Version = "2.0.0"
+	version.Commit = "xyz789"
 
 	handler := SimpleHandler()
 
@@ -182,9 +184,9 @@ func TestSimpleHandler(t *testing.T) {
 }
 
 func TestMiddleware(t *testing.T) {
-	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
+	info := version.New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
 	// The commit header is the opt-in form now; Middleware alone is public-only.
-	middleware := MiddlewareWithConfig(HandlerConfig{Info: info, HeaderPrefix: "X-", IncludeBuildDetails: true})
+	middleware := MiddlewareWithConfig(version.HandlerConfig{Info: info, HeaderPrefix: "X-", IncludeBuildDetails: true})
 
 	innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -227,9 +229,9 @@ func TestMiddleware_DefaultInfo(t *testing.T) {
 }
 
 func TestRegisterEndpoint(t *testing.T) {
-	info := New("1.0.0", "abc123", "")
+	info := version.New("1.0.0", "abc123", "")
 	mux := http.NewServeMux()
-	RegisterEndpoint(mux, "/version", HandlerConfig{Info: info, IncludeBuildDetails: true})
+	RegisterEndpoint(mux, "/version", version.HandlerConfig{Info: info, IncludeBuildDetails: true})
 
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -240,29 +242,18 @@ func TestRegisterEndpoint(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var parsed Info
+	var parsed version.Info
 	err = json.NewDecoder(resp.Body).Decode(&parsed)
 	require.NoError(t, err)
 
 	assert.Equal(t, "1.0.0", parsed.Version)
 }
 
-func TestDefaultHandlerConfig(t *testing.T) {
-	cfg := DefaultHandlerConfig()
-
-	assert.NotNil(t, cfg.Info)
-	assert.False(t, cfg.Pretty)
-	assert.False(t, cfg.IncludeHeaders)
-	assert.Equal(t, "X-", cfg.HeaderPrefix)
-}
-
-// Fiber tests
-
 func TestHandler_NoCommit(t *testing.T) {
-	info := &Info{
+	info := &version.Info{
 		Version: "1.0.0",
 	}
-	handler := Handler(HandlerConfig{
+	handler := Handler(version.HandlerConfig{
 		Info:                info,
 		IncludeHeaders:      true,
 		IncludeBuildDetails: true,
@@ -281,8 +272,8 @@ func TestHandler_NoCommit(t *testing.T) {
 }
 
 func TestHandler_NilInfoAndEmptyPrefix(t *testing.T) {
-	// Test with nil Info (should use Default) and empty HeaderPrefix (should use "X-")
-	handler := Handler(HandlerConfig{
+	// Test with nil version.Info (should use Default) and empty HeaderPrefix (should use "X-")
+	handler := Handler(version.HandlerConfig{
 		Info:                nil,
 		IncludeHeaders:      true,
 		HeaderPrefix:        "", // Empty prefix should default to "X-"
@@ -324,8 +315,8 @@ func TestTextHandler_DefaultConfig(t *testing.T) {
 }
 
 func TestTextHandler_WithHeaders(t *testing.T) {
-	info := NewWithBranch("1.0.0", "abc1234567890", "2025-01-01T00:00:00Z", "main")
-	handler := TextHandler(HandlerConfig{
+	info := version.NewWithBranch("1.0.0", "abc1234567890", "2025-01-01T00:00:00Z", "main")
+	handler := TextHandler(version.HandlerConfig{
 		Info:                info,
 		IncludeHeaders:      true,
 		HeaderPrefix:        "X-App-",
@@ -346,8 +337,8 @@ func TestTextHandler_WithHeaders(t *testing.T) {
 }
 
 func TestTextHandler_NilInfo(t *testing.T) {
-	handler := TextHandler(HandlerConfig{
-		Info:                nil, // Should use Default()
+	handler := TextHandler(version.HandlerConfig{
+		Info:                nil, // Should use version.Default()
 		IncludeBuildDetails: true,
 	})
 
@@ -364,17 +355,17 @@ func TestTextHandler_NilInfo(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	// Should contain version info from Default()
+	// Should contain version info from version.Default()
 	assert.Contains(t, string(body), "Version:")
 }
 
 func TestSetVersionHeaders_UnknownCommit(t *testing.T) {
-	info := &Info{
+	info := &version.Info{
 		Version:   "1.0.0",
 		Commit:    "unknown",
 		BuildDate: "unknown",
 	}
-	handler := Handler(HandlerConfig{
+	handler := Handler(version.HandlerConfig{
 		Info:                info,
 		IncludeHeaders:      true,
 		IncludeBuildDetails: true,

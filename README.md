@@ -1,23 +1,57 @@
 # Version Kit
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v3.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v3)
+[![Go Reference](https://pkg.go.dev/badge/github.com/soulteary/version-kit/v4.svg)](https://pkg.go.dev/github.com/soulteary/version-kit/v4)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/soulteary/version-kit/graph/badge.svg)](https://codecov.io/gh/soulteary/version-kit)
 
 [中文文档](README_CN.md)
 
-A version information management toolkit for Go applications. Provides structured version info, HTTP endpoints, and middleware for both net/http and Fiber.
+A version information management toolkit for Go applications. Provides structured
+version info, HTTP endpoints, and middleware for both net/http and Fiber. The root
+package depends on nothing outside the standard library and does not import
+`net/http` — the handlers live in the `httpadapter` and `fiberadapter`
+subpackages, so a CLI that only prints `--version` links neither.
 
 
-> **v3 changes the module path.** Every import becomes
-> `github.com/soulteary/version-kit/v3` — and so does the `-ldflags -X` path,
-> which **fails silently** if you miss it. Fiber support also moved to a
-> subpackage, so importing the root package no longer links Fiber (and
-> fasthttp) into binaries that never use it: for a net/http service that is
-> **25 fewer linked packages, 11 fewer modules and a 14% smaller binary**.
+> **Breaking in v4.0.0 — new module path, and the net/http handlers moved to a
+> subpackage.**
 >
-> → **[Migrating from v2](#migrating-from-v2)**
+> **Step 1 — everyone, including services that serve no HTTP.** The module path
+> is now `github.com/soulteary/version-kit/v4`, **and so is the `-ldflags -X`
+> path**, which fails silently if you miss it — the build succeeds, exits 0 and
+> reports `dev`:
+>
+> ```bash
+> go get github.com/soulteary/version-kit/v4
+> go mod edit -droprequire github.com/soulteary/version-kit/v3
+> ```
+>
+> **Step 2 — net/http users only.** The six net/http entry points moved to
+> `github.com/soulteary/version-kit/v4/httpadapter`, keeping their names, so
+> importing the root package no longer links a web server into a binary that
+> never starts one. For a program that imports only the root package — a CLI
+> printing `--version`, which is most of what this kit is used for — that is
+> **124 fewer linked packages and a 53% smaller binary** (200 → 76 packages,
+> 3,723,527 → 1,745,056 bytes, `-trimpath -ldflags="-s -w"` on linux/amd64).
+>
+> | Before | After |
+> |---|---|
+> | `version.Handler(c)` | `httpadapter.Handler(c)` |
+> | `version.TextHandler(c)` | `httpadapter.TextHandler(c)` |
+> | `version.SimpleHandler()` | `httpadapter.SimpleHandler()` |
+> | `version.Middleware(info, prefix)` | `httpadapter.Middleware(info, prefix)` |
+> | `version.MiddlewareWithConfig(c)` | `httpadapter.MiddlewareWithConfig(c)` |
+> | `version.RegisterEndpoint(mux, path, c)` | `httpadapter.RegisterEndpoint(mux, path, c)` |
+>
+> **`HandlerConfig` stayed in the root package**, and so did `ResolveConfig`,
+> `DefaultHandlerConfig` and the `Payload` / `TextPayload` / `JSONResponse` /
+> `Headers` methods. They decide *what* is served and contain no `net/http`, so
+> a service on Echo, Gin or chi keeps building its own two-line adapter against
+> the root package with no change at all. Nothing else was removed or resigned:
+> every other symbol, and every behaviour, is as it was in v3.0.0.
+>
+> → **[Migrating from v3](#migrating-from-v3)**
 
 ## Features
 
@@ -25,6 +59,9 @@ A version information management toolkit for Go applications. Provides structure
 - **HTTP Endpoints**: JSON and text format endpoints for version APIs
 - **Middleware**: Add version headers to all responses
 - **Dual Framework Support**: Works with both net/http and Fiber
+- **Pay For What You Import**: the root package depends on nothing outside the
+  standard library, `net/http` included — net/http and Fiber each live in their
+  own subpackage, so a binary links only the server it actually runs
 - **Builder Pattern**: Fluent interface for constructing version info
 - **Build-time Injection**: Support for ldflags version injection
 
@@ -32,13 +69,26 @@ A version information management toolkit for Go applications. Provides structure
 
 - **Go 1.27+** for building and running (`go.mod` declares `go 1.27.0`).
 - Fiber APIs (`fiberadapter.Handler`, `fiberadapter.Middleware`, etc.) require Fiber v3.4.0 or later.
+- net/http APIs (`httpadapter.Handler`, `httpadapter.Middleware`, etc.) need only the standard library.
 
-This v3 module line targets Fiber v3. Applications that still use Fiber v2 should remain on `github.com/soulteary/version-kit` v1.
+This v4 module line targets Fiber v3. Applications that still use Fiber v2 should remain on `github.com/soulteary/version-kit` v1.
 
 ## Installation
 
 ```bash
-go get github.com/soulteary/version-kit/v3
+go get github.com/soulteary/version-kit/v4
+```
+
+The root package depends on nothing outside the standard library — not even
+`net/http`. Everything that needs a server lives in its own subpackage, so a
+binary links only what it actually serves:
+
+```bash
+# net/http handlers and middleware — standard library only
+go get github.com/soulteary/version-kit/v4/httpadapter
+
+# Fiber v3 handlers — links Fiber, and with it fasthttp
+go get github.com/soulteary/version-kit/v4/fiberadapter
 ```
 
 ## Quick Start
@@ -51,7 +101,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v3"
+    version "github.com/soulteary/version-kit/v4"
 )
 
 func main() {
@@ -77,7 +127,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v3"
+    version "github.com/soulteary/version-kit/v4"
 )
 
 func main() {
@@ -92,10 +142,10 @@ Build with version info:
 
 ```bash
 go build -ldflags "\
-  -X github.com/soulteary/version-kit/v3.Version=1.0.0 \
-  -X github.com/soulteary/version-kit/v3.Commit=$(git rev-parse HEAD) \
-  -X github.com/soulteary/version-kit/v3.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -X github.com/soulteary/version-kit/v3.Branch=$(git rev-parse --abbrev-ref HEAD)" \
+  -X github.com/soulteary/version-kit/v4.Version=1.0.0 \
+  -X github.com/soulteary/version-kit/v4.Commit=$(git rev-parse HEAD) \
+  -X github.com/soulteary/version-kit/v4.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -X github.com/soulteary/version-kit/v4.Branch=$(git rev-parse --abbrev-ref HEAD)" \
   -o myapp
 ```
 
@@ -109,7 +159,8 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit/v3"
+    version "github.com/soulteary/version-kit/v4"
+    "github.com/soulteary/version-kit/v4/httpadapter"
 )
 
 func main() {
@@ -118,19 +169,19 @@ func main() {
     mux := http.NewServeMux()
     
     // Register JSON endpoint
-    version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
+    httpadapter.RegisterEndpoint(mux, "/version", version.HandlerConfig{
         Info:   info,
         Pretty: true,
     })
     
     // Or use handler directly
-    mux.HandleFunc("/v", version.Handler(version.HandlerConfig{Info: info}))
+    mux.HandleFunc("/v", httpadapter.Handler(version.HandlerConfig{Info: info}))
     
     // Text format endpoint
-    mux.HandleFunc("/version.txt", version.TextHandler(version.HandlerConfig{Info: info}))
+    mux.HandleFunc("/version.txt", httpadapter.TextHandler(version.HandlerConfig{Info: info}))
     
     // Simple version string
-    mux.HandleFunc("/v/simple", version.SimpleHandler())
+    mux.HandleFunc("/v/simple", httpadapter.SimpleHandler())
     
     http.ListenAndServe(":8080", mux)
 }
@@ -143,8 +194,8 @@ package main
 
 import (
     "github.com/gofiber/fiber/v3"
-    version "github.com/soulteary/version-kit/v3"
-    "github.com/soulteary/version-kit/v3/fiberadapter"
+    version "github.com/soulteary/version-kit/v4"
+    "github.com/soulteary/version-kit/v4/fiberadapter"
 )
 
 func main() {
@@ -181,7 +232,8 @@ package main
 import (
     "net/http"
     
-    version "github.com/soulteary/version-kit/v3"
+    version "github.com/soulteary/version-kit/v4"
+    "github.com/soulteary/version-kit/v4/httpadapter"
 )
 
 func main() {
@@ -192,7 +244,7 @@ func main() {
     })
     
     // Wrap with version middleware
-    wrapped := version.Middleware(info, "X-")(handler)
+    wrapped := httpadapter.Middleware(info, "X-")(handler)
     
     // All responses will have:
     // X-Version: 1.0.0
@@ -207,7 +259,7 @@ public fields. `X-Commit` and `X-Build-Date` are an opt-in, exactly as they
 are for the handlers:
 
 ```go
-wrapped := version.MiddlewareWithConfig(version.HandlerConfig{
+wrapped := httpadapter.MiddlewareWithConfig(version.HandlerConfig{
     Info:                info,
     HeaderPrefix:        "X-",
     IncludeBuildDetails: true, // adds X-Commit and X-Build-Date
@@ -224,8 +276,8 @@ package main
 
 import (
     "github.com/gofiber/fiber/v3"
-    version "github.com/soulteary/version-kit/v3"
-    "github.com/soulteary/version-kit/v3/fiberadapter"
+    version "github.com/soulteary/version-kit/v4"
+    "github.com/soulteary/version-kit/v4/fiberadapter"
 )
 
 func main() {
@@ -255,7 +307,7 @@ package main
 import (
     "fmt"
     
-    version "github.com/soulteary/version-kit/v3"
+    version "github.com/soulteary/version-kit/v4"
 )
 
 func main() {
@@ -273,7 +325,7 @@ func main() {
 ### Include Headers in Endpoint Response
 
 ```go
-version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
+httpadapter.RegisterEndpoint(mux, "/version", version.HandlerConfig{
     Info:           info,
     IncludeHeaders: true,  // Add version headers to response
     HeaderPrefix:   "X-App-", // Custom prefix
@@ -293,23 +345,30 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ### Serving it over net/http
 
+`github.com/soulteary/version-kit/v4/httpadapter` — standard library only.
+Importing **this** package is what puts `net/http` in your binary; the root
+package does not.
+
 | Function | Description |
 |----------|-------------|
-| `Handler(config ...HandlerConfig) http.HandlerFunc` | Serves the version info as JSON. |
-| `TextHandler(config ...HandlerConfig) http.HandlerFunc` | Serves it as plain text. |
-| `SimpleHandler() http.HandlerFunc` | Serves just the version string, read from the package variables per request. |
-| `RegisterEndpoint(mux *http.ServeMux, path string, config ...HandlerConfig)` | Registers `Handler` on a `ServeMux`. |
-| `Middleware(info *Info, prefix string) func(http.Handler) http.Handler` | Adds the **public** version headers (`X-Version`, `X-Branch`) to every response. |
-| `MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler` | Same, with the full `HandlerConfig`; set `IncludeBuildDetails` for `X-Commit` and `X-Build-Date`. |
-| `DefaultHandlerConfig() HandlerConfig` | A `HandlerConfig` with the defaults already filled in. |
+| `httpadapter.Handler(config ...version.HandlerConfig) http.HandlerFunc` | Serves the version info as JSON. |
+| `httpadapter.TextHandler(config ...version.HandlerConfig) http.HandlerFunc` | Serves it as plain text. |
+| `httpadapter.SimpleHandler() http.HandlerFunc` | Serves just the version string, read from the package variables per request. |
+| `httpadapter.RegisterEndpoint(mux *http.ServeMux, path string, config ...version.HandlerConfig)` | Registers `Handler` on a `ServeMux`. |
+| `httpadapter.Middleware(info *version.Info, prefix string) func(http.Handler) http.Handler` | Adds the **public** version headers (`X-Version`, `X-Branch`) to every response. |
+| `httpadapter.MiddlewareWithConfig(config version.HandlerConfig) func(http.Handler) http.Handler` | Same, with the full `HandlerConfig`; set `IncludeBuildDetails` for `X-Commit` and `X-Build-Date`. |
+
+`DefaultHandlerConfig() HandlerConfig` stays in the root package with the rest
+of the configuration API — it is what every adapter reads, not something
+net/http owns.
 
 ### Serving it over Fiber
 
-`github.com/soulteary/version-kit/v3/fiberadapter` — the same set, serving the
+`github.com/soulteary/version-kit/v4/fiberadapter` — the same set, serving the
 same bytes, returning `fiber.Handler`. Importing **this** package is what links
-Fiber into your binary; the root package does not.
+Fiber, and with it fasthttp, into your binary; the root package does not.
 
-| Function | net/http counterpart |
+| Function | httpadapter counterpart |
 |----------|----------------------|
 | `fiberadapter.Handler(config ...version.HandlerConfig) fiber.Handler` | `Handler` |
 | `fiberadapter.TextHandler(config ...version.HandlerConfig) fiber.Handler` | `TextHandler` |
@@ -459,7 +518,7 @@ build date fingerprint your deployment. Turn it on for an internal endpoint, or
 behind authentication, to get the full response back:
 
 ```go
-version.Handler(version.HandlerConfig{
+httpadapter.Handler(version.HandlerConfig{
     Info:                version.Default(),
     IncludeBuildDetails: true,
 })
@@ -487,19 +546,97 @@ fields are unset, so a reduced `Info` renders without a run of empty lines.
 space, colon or newline would produce a malformed header. An invalid prefix falls
 back to `"X-"`.
 
+## Migrating from v3
+
+### 1. The module path
+
+```bash
+go get github.com/soulteary/version-kit/v4
+go mod edit -droprequire github.com/soulteary/version-kit/v3
+```
+
+Then rewrite every import:
+
+```diff
+-version "github.com/soulteary/version-kit/v3"
++version "github.com/soulteary/version-kit/v4"
+```
+
+This applies to **everyone**, including binaries that serve no HTTP at all.
+`go get -u` will not do it for you — that is what a new major version means.
+v3 stays where it is on `v3.0.0`.
+
+### 2. The ldflags path — this one fails silently, again
+
+The `-X` paths carry the module path too, and a wrong one is not an error: the
+linker has nothing to write to, so the build succeeds, exits 0 and the binary
+reports `dev`. Grep your Makefile, Dockerfile and release workflow for
+`version-kit/v3` — not just your `.go` files.
+
+```bash
+# WRONG after upgrading: builds fine, exits 0, reports "dev"
+go build -ldflags "-X github.com/soulteary/version-kit/v3.Version=1.0.0" .
+
+# Right
+go build -ldflags "-X github.com/soulteary/version-kit/v4.Version=1.0.0" .
+```
+
+### 3. The net/http functions moved
+
+Six symbols left the root package for `httpadapter`, keeping their names:
+
+```diff
+ import (
+     version "github.com/soulteary/version-kit/v4"
++    "github.com/soulteary/version-kit/v4/httpadapter"
+ )
+
+-mux.HandleFunc("/version", version.Handler(version.HandlerConfig{Info: info}))
++mux.HandleFunc("/version", httpadapter.Handler(version.HandlerConfig{Info: info}))
+```
+
+| v3 | v4 |
+|----|----|
+| `version.Handler(...)` | `httpadapter.Handler(...)` |
+| `version.TextHandler(...)` | `httpadapter.TextHandler(...)` |
+| `version.SimpleHandler()` | `httpadapter.SimpleHandler()` |
+| `version.RegisterEndpoint(...)` | `httpadapter.RegisterEndpoint(...)` |
+| `version.Middleware(...)` | `httpadapter.Middleware(...)` |
+| `version.MiddlewareWithConfig(...)` | `httpadapter.MiddlewareWithConfig(...)` |
+
+Keeping them in place as shims was not an option: a shim imports `net/http`,
+which is the entire thing being moved out.
+
+### 4. If you are not on net/http, there is no step 3
+
+`HandlerConfig`, `ResolveConfig`, `DefaultHandlerConfig`, `Info`, `New`,
+`Default`, `NewBuilder` and the `Payload` / `TextPayload` / `JSONResponse` /
+`Headers` / `Normalized` methods all stayed in the root package, unchanged. A
+CLI, or a service on Echo, Gin or chi that builds its own adapter the way
+[Serving it over anything else](#serving-it-over-anything-else) describes,
+needs step 1 and step 2 and nothing more.
+
+`fiberadapter` users likewise: it reads the same root-package configuration it
+always did, so only its import path changes.
+
+### 5. Nothing else changed
+
+No behaviour, no signature, no response byte. v4 is the module path and the
+package boundary; that is all of it.
+
 ## Migrating from v2
 
 ### 1. The module path
 
 ```bash
-go get github.com/soulteary/version-kit/v3
+go get github.com/soulteary/version-kit/v4
 ```
 
 Then rewrite every import:
 
 ```diff
 -version "github.com/soulteary/version-kit/v2"
-+version "github.com/soulteary/version-kit/v3"
++version "github.com/soulteary/version-kit/v4"
 ```
 
 This applies to **everyone**, including net/http-only services that never touch
@@ -516,7 +653,7 @@ package that no longer exists and the linker says nothing:
 go build -ldflags "-X github.com/soulteary/version-kit/v2.Version=1.0.0" .
 
 # right
-go build -ldflags "-X github.com/soulteary/version-kit/v3.Version=1.0.0" .
+go build -ldflags "-X github.com/soulteary/version-kit/v4.Version=1.0.0" .
 ```
 
 There is no error and no warning. The binary builds, passes CI, ships, and
@@ -527,8 +664,8 @@ CI workflows for the old path before you tag a release.
 
 ```go
 import (
-    version "github.com/soulteary/version-kit/v3"
-    "github.com/soulteary/version-kit/v3/fiberadapter"
+    version "github.com/soulteary/version-kit/v4"
+    "github.com/soulteary/version-kit/v4/fiberadapter"
 )
 ```
 
@@ -550,7 +687,7 @@ longer changes what is served:
 
 ```go
 info := version.New("1.0.0", "abc1234", "")
-h := version.Handler(version.HandlerConfig{Info: info})
+h := httpadapter.Handler(version.HandlerConfig{Info: info})
 info.Version = "2.0.0"   // v2 served 2.0.0 here; v3 serves 1.0.0
 ```
 
