@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 // HandlerConfig configures the version endpoint handler.
@@ -68,20 +66,71 @@ func normalizeHeaderPrefix(prefix string) string {
 	return "X-"
 }
 
-// payload returns the Info to serve, reduced unless build details were asked for.
-func (c HandlerConfig) payload() *Info {
+// Payload returns the Info to serve, reduced unless build details were asked for.
+//
+// Exported for framework adapters (see the fiberadapter subpackage): the
+// reduction rule must be identical across frameworks, so every adapter reads
+// it from here instead of restating it.
+func (c HandlerConfig) Payload() *Info {
+	if c.Info == nil {
+		c = c.Normalized()
+	}
 	if c.IncludeBuildDetails {
 		return c.Info
 	}
 	return c.Info.Public()
 }
 
-// textPayload is payload rendered for the plain-text handlers.
-func (c HandlerConfig) textPayload() string {
+// TextPayload is Payload rendered for the plain-text handlers.
+func (c HandlerConfig) TextPayload() string {
+	if c.Info == nil {
+		c = c.Normalized()
+	}
 	if c.IncludeBuildDetails {
 		return c.Info.Full()
 	}
 	return c.Info.Public().Full()
+}
+
+// Normalized applies the defaults every handler and middleware uses: a nil Info
+// becomes Default(), and a header prefix that is not a token becomes "X-".
+func (c HandlerConfig) Normalized() HandlerConfig {
+	if c.Info == nil {
+		c.Info = Default()
+	}
+	c.HeaderPrefix = normalizeHeaderPrefix(c.HeaderPrefix)
+	return c
+}
+
+// ResolveConfig turns a handler's variadic config argument into the effective
+// configuration: the first element if given, otherwise DefaultHandlerConfig,
+// with Normalized applied either way.
+func ResolveConfig(config ...HandlerConfig) HandlerConfig {
+	cfg := DefaultHandlerConfig()
+	if len(config) > 0 {
+		cfg = config[0]
+	}
+	return cfg.Normalized()
+}
+
+// Headers returns the version headers to emit, already sanitized and keyed by
+// full header name. Adapters set these verbatim, so every framework emits the
+// same headers under the same build-detail policy.
+func (c HandlerConfig) Headers() map[string]string {
+	info := c.Payload()
+	prefix := normalizeHeaderPrefix(c.HeaderPrefix)
+
+	h := map[string]string{prefix + "Version": sanitizeHeaderValue(info.Version)}
+	if info.Commit != "" && info.Commit != "unknown" {
+		h[prefix+"Commit"] = sanitizeHeaderValue(info.ShortCommit())
+	}
+	if info.Branch != "" {
+		h[prefix+"Branch"] = sanitizeHeaderValue(info.Branch)
+	}
+	if info.BuildDate != "" && info.BuildDate != "unknown" {
+		h[prefix+"Build-Date"] = sanitizeHeaderValue(info.BuildDate)
+	}
+	return h
 }
 
 // DefaultHandlerConfig returns a HandlerConfig with default values.
@@ -96,31 +145,22 @@ func DefaultHandlerConfig() HandlerConfig {
 
 // Handler returns an http.HandlerFunc that serves version information.
 func Handler(config ...HandlerConfig) http.HandlerFunc {
-	cfg := DefaultHandlerConfig()
-	if len(config) > 0 {
-		cfg = config[0]
-	}
-
-	if cfg.Info == nil {
-		cfg.Info = Default()
-	}
-
-	cfg.HeaderPrefix = normalizeHeaderPrefix(cfg.HeaderPrefix)
+	cfg := ResolveConfig(config...)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if cfg.IncludeHeaders {
-			setVersionHeaders(w.Header(), cfg.payload(), cfg.HeaderPrefix)
+			setVersionHeaders(w.Header(), cfg)
 		}
 
 		var output []byte
 		var err error
 
 		if cfg.Pretty {
-			output, err = json.MarshalIndent(cfg.payload(), "", "  ")
+			output, err = json.MarshalIndent(cfg.Payload(), "", "  ")
 		} else {
-			output, err = json.Marshal(cfg.payload())
+			output, err = json.Marshal(cfg.Payload())
 		}
 
 		if err != nil {
@@ -133,75 +173,15 @@ func Handler(config ...HandlerConfig) http.HandlerFunc {
 	}
 }
 
-// FiberHandler returns a Fiber handler that serves version information.
-func FiberHandler(config ...HandlerConfig) fiber.Handler {
-	cfg := DefaultHandlerConfig()
-	if len(config) > 0 {
-		cfg = config[0]
-	}
-
-	if cfg.Info == nil {
-		cfg.Info = Default()
-	}
-
-	cfg.HeaderPrefix = normalizeHeaderPrefix(cfg.HeaderPrefix)
-
-	return func(c fiber.Ctx) error {
-		c.Set("Content-Type", "application/json")
-
-		if cfg.IncludeHeaders {
-			setVersionHeadersFiber(c, cfg.payload(), cfg.HeaderPrefix)
-		}
-
-		if cfg.Pretty {
-			return c.JSON(cfg.payload())
-		}
-
-		return c.JSON(cfg.payload())
-	}
-}
-
 // RegisterEndpoint registers the version handler on an http.ServeMux.
 func RegisterEndpoint(mux *http.ServeMux, path string, config ...HandlerConfig) {
 	mux.HandleFunc(path, Handler(config...))
 }
 
-// RegisterEndpointFiber registers the version handler on a Fiber app.
-func RegisterEndpointFiber(app *fiber.App, path string, config ...HandlerConfig) {
-	app.Get(path, FiberHandler(config...))
-}
-
 // setVersionHeaders adds version information to HTTP headers.
-func setVersionHeaders(h http.Header, info *Info, prefix string) {
-	h.Set(prefix+"Version", sanitizeHeaderValue(info.Version))
-
-	if info.Commit != "" && info.Commit != "unknown" {
-		h.Set(prefix+"Commit", sanitizeHeaderValue(info.ShortCommit()))
-	}
-
-	if info.Branch != "" {
-		h.Set(prefix+"Branch", sanitizeHeaderValue(info.Branch))
-	}
-
-	if info.BuildDate != "" && info.BuildDate != "unknown" {
-		h.Set(prefix+"Build-Date", sanitizeHeaderValue(info.BuildDate))
-	}
-}
-
-// setVersionHeadersFiber adds version information to Fiber response headers.
-func setVersionHeadersFiber(c fiber.Ctx, info *Info, prefix string) {
-	c.Set(prefix+"Version", sanitizeHeaderValue(info.Version))
-
-	if info.Commit != "" && info.Commit != "unknown" {
-		c.Set(prefix+"Commit", sanitizeHeaderValue(info.ShortCommit()))
-	}
-
-	if info.Branch != "" {
-		c.Set(prefix+"Branch", sanitizeHeaderValue(info.Branch))
-	}
-
-	if info.BuildDate != "" && info.BuildDate != "unknown" {
-		c.Set(prefix+"Build-Date", sanitizeHeaderValue(info.BuildDate))
+func setVersionHeaders(h http.Header, cfg HandlerConfig) {
+	for name, value := range cfg.Headers() {
+		h.Set(name, value)
 	}
 }
 
@@ -212,16 +192,6 @@ func sanitizeHeaderValue(value string) string {
 		}
 		return r
 	}, value)
-}
-
-// normalizeMiddlewareConfig applies the same defaults the handlers use, so a
-// middleware reduces its payload by exactly the same rule.
-func normalizeMiddlewareConfig(cfg HandlerConfig) HandlerConfig {
-	if cfg.Info == nil {
-		cfg.Info = Default()
-	}
-	cfg.HeaderPrefix = normalizeHeaderPrefix(cfg.HeaderPrefix)
-	return cfg
 }
 
 // Middleware returns an http.Handler middleware that adds version headers to
@@ -238,30 +208,13 @@ func Middleware(info *Info, prefix string) func(http.Handler) http.Handler {
 // MiddlewareWithConfig is Middleware with the handlers' full configuration,
 // including IncludeBuildDetails for the commit and build-date headers.
 func MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler {
-	cfg := normalizeMiddlewareConfig(config)
+	cfg := config.Normalized()
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			setVersionHeaders(w.Header(), cfg.payload(), cfg.HeaderPrefix)
+			setVersionHeaders(w.Header(), cfg)
 			next.ServeHTTP(w, r)
 		})
-	}
-}
-
-// FiberMiddleware returns a Fiber middleware that adds version headers to all
-// responses. It follows the same build-detail policy as Middleware.
-func FiberMiddleware(info *Info, prefix string) fiber.Handler {
-	return FiberMiddlewareWithConfig(HandlerConfig{Info: info, HeaderPrefix: prefix})
-}
-
-// FiberMiddlewareWithConfig is FiberMiddleware with the handlers' full
-// configuration, including IncludeBuildDetails.
-func FiberMiddlewareWithConfig(config HandlerConfig) fiber.Handler {
-	cfg := normalizeMiddlewareConfig(config)
-
-	return func(c fiber.Ctx) error {
-		setVersionHeadersFiber(c, cfg.payload(), cfg.HeaderPrefix)
-		return c.Next()
 	}
 }
 
@@ -282,35 +235,11 @@ func TextHandler(config ...HandlerConfig) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 		if cfg.IncludeHeaders {
-			setVersionHeaders(w.Header(), cfg.payload(), cfg.HeaderPrefix)
+			setVersionHeaders(w.Header(), cfg)
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(cfg.textPayload()))
-	}
-}
-
-// FiberTextHandler returns a Fiber handler that serves version information as plain text.
-func FiberTextHandler(config ...HandlerConfig) fiber.Handler {
-	cfg := DefaultHandlerConfig()
-	if len(config) > 0 {
-		cfg = config[0]
-	}
-
-	if cfg.Info == nil {
-		cfg.Info = Default()
-	}
-
-	cfg.HeaderPrefix = normalizeHeaderPrefix(cfg.HeaderPrefix)
-
-	return func(c fiber.Ctx) error {
-		c.Set("Content-Type", "text/plain; charset=utf-8")
-
-		if cfg.IncludeHeaders {
-			setVersionHeadersFiber(c, cfg.payload(), cfg.HeaderPrefix)
-		}
-
-		return c.SendString(cfg.textPayload())
+		_, _ = w.Write([]byte(cfg.TextPayload()))
 	}
 }
 
@@ -320,13 +249,5 @@ func SimpleHandler() http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(Default().String()))
-	}
-}
-
-// FiberSimpleHandler returns a minimal Fiber handler that just returns the version string.
-func FiberSimpleHandler() fiber.Handler {
-	return func(c fiber.Ctx) error {
-		c.Set("Content-Type", "text/plain; charset=utf-8")
-		return c.SendString(Default().String())
 	}
 }

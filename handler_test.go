@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -259,147 +258,6 @@ func TestDefaultHandlerConfig(t *testing.T) {
 
 // Fiber tests
 
-func TestFiberHandler(t *testing.T) {
-	app := fiber.New()
-	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
-
-	app.Get("/version", FiberHandler(HandlerConfig{Info: info, IncludeBuildDetails: true}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var parsed Info
-	err = json.NewDecoder(resp.Body).Decode(&parsed)
-	require.NoError(t, err)
-
-	assert.Equal(t, "1.0.0", parsed.Version)
-	// Build detail is opt-in now; see TestHandlerOmitsBuildDetailsByDefault.
-	assert.Equal(t, "abc123", parsed.Commit)
-}
-
-func TestFiberHandler_WithHeaders(t *testing.T) {
-	app := fiber.New()
-	info := NewWithBranch("1.0.0", "abc1234567890", "2025-01-01T00:00:00Z", "main")
-
-	app.Get("/version", FiberHandler(HandlerConfig{
-		Info:                info,
-		IncludeHeaders:      true,
-		HeaderPrefix:        "X-",
-		IncludeBuildDetails: true,
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, "1.0.0", resp.Header.Get("X-Version"))
-	assert.Equal(t, "abc1234", resp.Header.Get("X-Commit"))
-	assert.Equal(t, "main", resp.Header.Get("X-Branch"))
-}
-
-func TestFiberTextHandler(t *testing.T) {
-	app := fiber.New()
-	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
-
-	app.Get("/version", FiberTextHandler(HandlerConfig{Info: info, IncludeBuildDetails: true}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	assert.Contains(t, string(body), "Version:    1.0.0")
-}
-
-func TestFiberSimpleHandler(t *testing.T) {
-	// Save and restore original values
-	origVersion := Version
-	origCommit := Commit
-	defer func() {
-		Version = origVersion
-		Commit = origCommit
-	}()
-
-	Version = "2.0.0"
-	Commit = "xyz789"
-
-	app := fiber.New()
-	app.Get("/version", FiberSimpleHandler())
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	assert.Contains(t, string(body), "2.0.0")
-}
-
-func TestFiberMiddleware(t *testing.T) {
-	app := fiber.New()
-	info := New("1.0.0", "abc123", "2025-01-01T00:00:00Z")
-
-	app.Use(FiberMiddlewareWithConfig(HandlerConfig{Info: info, HeaderPrefix: "X-", IncludeBuildDetails: true}))
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("OK")
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, "1.0.0", resp.Header.Get("X-Version"))
-	assert.Equal(t, "abc123", resp.Header.Get("X-Commit"))
-}
-
-func TestFiberMiddleware_DefaultInfo(t *testing.T) {
-	app := fiber.New()
-
-	app.Use(FiberMiddleware(nil, ""))
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("OK")
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	// Should have default X-Version header
-	assert.NotEmpty(t, resp.Header.Get("X-Version"))
-}
-
-func TestRegisterEndpointFiber(t *testing.T) {
-	app := fiber.New()
-	info := New("1.0.0", "abc123", "")
-
-	RegisterEndpointFiber(app, "/version", HandlerConfig{Info: info, IncludeBuildDetails: true})
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var parsed Info
-	err = json.NewDecoder(resp.Body).Decode(&parsed)
-	require.NoError(t, err)
-
-	assert.Equal(t, "1.0.0", parsed.Version)
-}
-
 func TestHandler_NoCommit(t *testing.T) {
 	info := &Info{
 		Version: "1.0.0",
@@ -442,70 +300,6 @@ func TestHandler_NilInfoAndEmptyPrefix(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	// Should have X- prefix headers
 	assert.NotEmpty(t, resp.Header.Get("X-Version"))
-}
-
-func TestFiberHandler_NilInfoAndEmptyPrefix(t *testing.T) {
-	app := fiber.New()
-
-	// Test with nil Info (should use Default) and empty HeaderPrefix (should use "X-")
-	app.Get("/version", FiberHandler(HandlerConfig{
-		Info:                nil,
-		IncludeHeaders:      true,
-		HeaderPrefix:        "", // Empty prefix should default to "X-"
-		IncludeBuildDetails: true,
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	// Should have X- prefix headers
-	assert.NotEmpty(t, resp.Header.Get("X-Version"))
-}
-
-func TestFiberHandler_DefaultConfig(t *testing.T) {
-	app := fiber.New()
-	app.Get("/version", FiberHandler())
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var parsed Info
-	err = json.NewDecoder(resp.Body).Decode(&parsed)
-	require.NoError(t, err)
-
-	// Should use default version
-	assert.NotEmpty(t, parsed.Version)
-}
-
-func TestFiberHandler_Pretty(t *testing.T) {
-	app := fiber.New()
-	info := New("1.0.0", "abc123", "")
-
-	app.Get("/version", FiberHandler(HandlerConfig{
-		Info:                info,
-		Pretty:              true,
-		IncludeBuildDetails: true,
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var parsed Info
-	err = json.NewDecoder(resp.Body).Decode(&parsed)
-	require.NoError(t, err)
-
-	assert.Equal(t, "1.0.0", parsed.Version)
 }
 
 func TestTextHandler_DefaultConfig(t *testing.T) {
@@ -574,66 +368,6 @@ func TestTextHandler_NilInfo(t *testing.T) {
 	assert.Contains(t, string(body), "Version:")
 }
 
-func TestFiberTextHandler_DefaultConfig(t *testing.T) {
-	app := fiber.New()
-	app.Get("/version", FiberTextHandler())
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	// Should contain version info
-	assert.Contains(t, string(body), "Version:")
-}
-
-func TestFiberTextHandler_WithHeaders(t *testing.T) {
-	app := fiber.New()
-	info := NewWithBranch("1.0.0", "abc1234567890", "2025-01-01T00:00:00Z", "main")
-
-	app.Get("/version", FiberTextHandler(HandlerConfig{
-		Info:                info,
-		IncludeHeaders:      true,
-		HeaderPrefix:        "X-App-",
-		IncludeBuildDetails: true,
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, "1.0.0", resp.Header.Get("X-App-Version"))
-	assert.Equal(t, "abc1234", resp.Header.Get("X-App-Commit"))
-	assert.Equal(t, "main", resp.Header.Get("X-App-Branch"))
-}
-
-func TestFiberTextHandler_NilInfo(t *testing.T) {
-	app := fiber.New()
-	app.Get("/version", FiberTextHandler(HandlerConfig{
-		Info:                nil, // Should use Default()
-		IncludeBuildDetails: true,
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	// Should contain version info from Default()
-	assert.Contains(t, string(body), "Version:")
-}
-
 func TestSetVersionHeaders_UnknownCommit(t *testing.T) {
 	info := &Info{
 		Version:   "1.0.0",
@@ -652,30 +386,6 @@ func TestSetVersionHeaders_UnknownCommit(t *testing.T) {
 	handler(w, req)
 
 	resp := w.Result()
-	defer func() { _ = resp.Body.Close() }()
-
-	// Should not have commit/build-date headers when they are "unknown"
-	assert.Empty(t, resp.Header.Get("X-Commit"))
-	assert.Empty(t, resp.Header.Get("X-Build-Date"))
-}
-
-func TestSetVersionHeadersFiber_UnknownCommit(t *testing.T) {
-	app := fiber.New()
-	info := &Info{
-		Version:   "1.0.0",
-		Commit:    "unknown",
-		BuildDate: "unknown",
-	}
-
-	app.Get("/version", FiberHandler(HandlerConfig{
-		Info:                info,
-		IncludeHeaders:      true,
-		IncludeBuildDetails: true,
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/version", nil)
-	resp, err := app.Test(req)
-	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 
 	// Should not have commit/build-date headers when they are "unknown"

@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/gofiber/fiber/v3"
 )
 
 // TestHandlerOmitsBuildDetailsByDefault: the version endpoint is usually
@@ -311,28 +309,6 @@ func TestMiddlewareOmitsBuildDetailsByDefault(t *testing.T) {
 	}
 	if got := h.Get("X-Build-Date"); got != "" {
 		t.Errorf("X-Build-Date = %q on an ordinary response, want it withheld by default", got)
-	}
-}
-
-func TestFiberMiddlewareOmitsBuildDetailsByDefault(t *testing.T) {
-	info := NewWithBranch("1.0.0", "abc1234567", "2025-01-01T00:00:00Z", "main")
-
-	app := fiber.New()
-	app.Use(FiberMiddleware(info, "X-"))
-	app.Get("/anything", func(c fiber.Ctx) error { return c.SendString("ok") })
-
-	resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/anything", nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := resp.Header.Get("X-Commit"); got != "" {
-		t.Errorf("X-Commit = %q on an ordinary response, want it withheld by default", got)
-	}
-	if got := resp.Header.Get("X-Build-Date"); got != "" {
-		t.Errorf("X-Build-Date = %q on an ordinary response, want it withheld by default", got)
-	}
-	if resp.Header.Get("X-Version") != "1.0.0" {
-		t.Errorf("X-Version = %q, want 1.0.0", resp.Header.Get("X-Version"))
 	}
 }
 

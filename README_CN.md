@@ -9,6 +9,24 @@
 
 一个用于 Go 应用程序的版本信息管理工具包。提供结构化的版本信息、HTTP 端点和中间件，同时支持 net/http 和 Fiber 框架。
 
+
+> **v2.3.0 破坏性变更 —— Fiber 支持移入子包。**
+> `Fiber*` 系列函数现位于 `github.com/soulteary/version-kit/v2/fiberadapter`，
+> 于是导入根包不再把 Fiber（以及 fasthttp）链接进用不到它的二进制。
+> 对一个 net/http 服务来说，这意味着**少链接 25 个包、少 11 个模块、二进制小 14%**。
+> Fiber 用户加一行 import、去掉 `Fiber` 前缀即可：
+>
+> | 原来 | 现在 |
+> |---|---|
+> | `version.FiberHandler(...)` | `fiberadapter.Handler(...)` |
+> | `version.FiberTextHandler(...)` | `fiberadapter.TextHandler(...)` |
+> | `version.FiberSimpleHandler()` | `fiberadapter.SimpleHandler()` |
+> | `version.FiberMiddleware(...)` | `fiberadapter.Middleware(...)` |
+> | `version.FiberMiddlewareWithConfig(...)` | `fiberadapter.MiddlewareWithConfig(...)` |
+> | `version.RegisterEndpointFiber(...)` | `fiberadapter.RegisterEndpoint(...)` |
+>
+> net/http 一侧没有任何变化。
+
 ## 功能特性
 
 - **版本信息**: 结构化的版本信息，包含版本号、提交哈希、构建日期、分支和运行时详情
@@ -21,7 +39,7 @@
 ## 运行要求
 
 - **Go 1.27+**，用于构建与运行（`go.mod` 声明 `go 1.27.0`）。
-- Fiber API（`FiberHandler`、`FiberMiddleware` 等）要求 Fiber v3.4.0 或更高版本。
+- Fiber API（`fiberadapter.Handler`、`fiberadapter.Middleware` 等）要求 Fiber v3.4.0 或更高版本。
 
 此 v2 模块版本面向 Fiber v3。仍使用 Fiber v2 的应用应继续使用 `github.com/soulteary/version-kit` v1。
 
@@ -134,6 +152,7 @@ package main
 import (
     "github.com/gofiber/fiber/v3"
     version "github.com/soulteary/version-kit/v2"
+    "github.com/soulteary/version-kit/v2/fiberadapter"
 )
 
 func main() {
@@ -142,19 +161,19 @@ func main() {
     app := fiber.New()
     
     // 注册 JSON 端点
-    version.RegisterEndpointFiber(app, "/version", version.HandlerConfig{
+    fiberadapter.RegisterEndpoint(app, "/version", version.HandlerConfig{
         Info:   info,
         Pretty: true,
     })
     
     // 或直接使用处理器
-    app.Get("/v", version.FiberHandler(version.HandlerConfig{Info: info}))
+    app.Get("/v", fiberadapter.Handler(version.HandlerConfig{Info: info}))
     
     // 文本格式端点
-    app.Get("/version.txt", version.FiberTextHandler(version.HandlerConfig{Info: info}))
+    app.Get("/version.txt", fiberadapter.TextHandler(version.HandlerConfig{Info: info}))
     
     // 简单版本字符串
-    app.Get("/v/simple", version.FiberSimpleHandler())
+    app.Get("/v/simple", fiberadapter.SimpleHandler())
     
     app.Listen(":3000")
 }
@@ -213,6 +232,7 @@ package main
 import (
     "github.com/gofiber/fiber/v3"
     version "github.com/soulteary/version-kit/v2"
+    "github.com/soulteary/version-kit/v2/fiberadapter"
 )
 
 func main() {
@@ -222,9 +242,9 @@ func main() {
     
     // 为所有响应添加公开版本响应头。
     // 需要 X-Commit / X-Build-Date 时改用：
-    //   version.FiberMiddlewareWithConfig(version.HandlerConfig{
+    //   fiberadapter.MiddlewareWithConfig(version.HandlerConfig{
     //       Info: info, HeaderPrefix: "X-", IncludeBuildDetails: true})
-    app.Use(version.FiberMiddleware(info, "X-"))
+    app.Use(fiberadapter.Middleware(info, "X-"))
     
     app.Get("/", func(c fiber.Ctx) error {
         return c.SendString("Hello")
@@ -279,8 +299,8 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 | `NewBuilder() *Builder` | 返回用于以流式 API 构建 `Info` 的 Builder。 |
 | `Middleware(info *Info, prefix string) func(http.Handler) http.Handler` | 为每个响应添加**公开**版本响应头（`X-Version`、`X-Branch`）。 |
 | `MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler` | 同上，接受完整 `HandlerConfig`；设置 `IncludeBuildDetails` 可输出 `X-Commit` 与 `X-Build-Date`。 |
-| `FiberMiddleware(info *Info, prefix string) fiber.Handler` | `Middleware` 的 Fiber 版本。 |
-| `FiberMiddlewareWithConfig(config HandlerConfig) fiber.Handler` | `MiddlewareWithConfig` 的 Fiber 版本。 |
+| `fiberadapter.Middleware(info *Info, prefix string) fiber.Handler` | `Middleware` 的 Fiber 版本。 |
+| `fiberadapter.MiddlewareWithConfig(config HandlerConfig) fiber.Handler` | `MiddlewareWithConfig` 的 Fiber 版本。 |
 
 ### Info 方法
 
@@ -406,14 +426,14 @@ go tool cover -html=coverage.out
 
 **端点的默认响应变小了。** 这正是本次修复，也是升级前唯一需要确认的一点。
 
-- **构建详情默认不再暴露。** `Handler`、`FiberHandler`、`TextHandler` 以及版本头中间件
+- **构建详情默认不再暴露。** `Handler`、`fiberadapter.Handler`、`TextHandler` 以及版本头中间件
   此前会输出完整的 `Info`——Go 运行时版本、commit、构建时间、平台和编译器。这个端点通常
   没有认证，而 `Middleware` 会把同样的数据放在**每一个响应**上，于是 `go_version` 让任何
   人都能把一个已公开的 Go 运行时 CVE 对应到正在服务他们的那个具体构建，commit 和构建时间
   进一步收窄范围。现在默认响应是 `{"version":…,"branch":…}`。**如果你的工具链会从
   `/version` 解析 `commit`、`build_date` 或 `go_version`，请设置
   `IncludeBuildDetails: true`**，并把该端点放到认证之后或内部路由上。
-- **新增 `MiddlewareWithConfig` 和 `FiberMiddlewareWithConfig`。**
+- **新增 `MiddlewareWithConfig` 和 `fiberadapter.MiddlewareWithConfig`。**
   `Middleware(info, prefix)` 签名不变，现在只输出公开头；要把 `X-Commit` 和
   `X-Build-Date` 拿回来，请使用带 `IncludeBuildDetails` 的 `WithConfig` 形式。
 - **新增 `Info.Public()`**，供自己拼响应的调用方使用。
