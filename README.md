@@ -301,7 +301,7 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ## API Reference
 
-### Package-level functions
+### Constructing Info
 
 | Function | Description |
 |----------|-------------|
@@ -309,10 +309,69 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 | `NewWithBranch(version, commit, buildDate, branch string) *Info` | Like `New` but also sets the branch name. |
 | `Default() *Info` | Returns info from package variables (Version, Commit, BuildDate, Branch), typically set via ldflags. |
 | `NewBuilder() *Builder` | Returns a builder for constructing `Info` with a fluent API. |
+
+### Serving it over net/http
+
+| Function | Description |
+|----------|-------------|
+| `Handler(config ...HandlerConfig) http.HandlerFunc` | Serves the version info as JSON. |
+| `TextHandler(config ...HandlerConfig) http.HandlerFunc` | Serves it as plain text. |
+| `SimpleHandler() http.HandlerFunc` | Serves just the version string, read from the package variables per request. |
+| `RegisterEndpoint(mux *http.ServeMux, path string, config ...HandlerConfig)` | Registers `Handler` on a `ServeMux`. |
 | `Middleware(info *Info, prefix string) func(http.Handler) http.Handler` | Adds the **public** version headers (`X-Version`, `X-Branch`) to every response. |
 | `MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler` | Same, with the full `HandlerConfig`; set `IncludeBuildDetails` for `X-Commit` and `X-Build-Date`. |
-| `fiberadapter.Middleware(info *Info, prefix string) fiber.Handler` | Fiber form of `Middleware`. |
-| `fiberadapter.MiddlewareWithConfig(config HandlerConfig) fiber.Handler` | Fiber form of `MiddlewareWithConfig`. |
+| `DefaultHandlerConfig() HandlerConfig` | A `HandlerConfig` with the defaults already filled in. |
+
+### Serving it over Fiber
+
+`github.com/soulteary/version-kit/v2/fiberadapter` — the same set, serving the
+same bytes, returning `fiber.Handler`. Importing **this** package is what links
+Fiber into your binary; the root package does not.
+
+| Function | net/http counterpart |
+|----------|----------------------|
+| `fiberadapter.Handler(config ...version.HandlerConfig) fiber.Handler` | `Handler` |
+| `fiberadapter.TextHandler(config ...version.HandlerConfig) fiber.Handler` | `TextHandler` |
+| `fiberadapter.SimpleHandler() fiber.Handler` | `SimpleHandler` |
+| `fiberadapter.RegisterEndpoint(app *fiber.App, path string, config ...version.HandlerConfig)` | `RegisterEndpoint` |
+| `fiberadapter.Middleware(info *version.Info, prefix string) fiber.Handler` | `Middleware` |
+| `fiberadapter.MiddlewareWithConfig(config version.HandlerConfig) fiber.Handler` | `MiddlewareWithConfig` |
+
+### Serving it over anything else
+
+Echo, Gin, chi — the rules that decide *what* gets served are methods on
+`HandlerConfig`, so an adapter reads them instead of restating them and cannot
+drift from the handlers above. `fiberadapter` is written against exactly these
+and nothing more.
+
+| Method | Returns |
+|--------|---------|
+| `ResolveConfig(config ...HandlerConfig) HandlerConfig` | The effective config for a variadic handler argument: the first element, or `DefaultHandlerConfig()`, `Normalized` either way. |
+| `(c HandlerConfig) Normalized() HandlerConfig` | The config with a nil `Info` replaced by `Default()` and a `HeaderPrefix` that is not a valid HTTP token replaced by `"X-"`. |
+| `(c HandlerConfig) Payload() *Info` | The `Info` to serve, reduced to the public fields unless `IncludeBuildDetails` is set. |
+| `(c HandlerConfig) TextPayload() string` | `Payload` rendered for a plain-text endpoint. |
+| `(c HandlerConfig) JSONResponse() (body []byte, status int)` | `Payload` marshalled — indented when `Pretty` is set — and the status to send it with. |
+| `(c HandlerConfig) Headers() map[string]string` | The version headers to emit, already sanitized and keyed by full header name. Respects `IncludeBuildDetails`. |
+
+A whole adapter is this:
+
+```go
+func Handler(config ...version.HandlerConfig) echo.HandlerFunc {
+    // Neither of these changes per request, so compute them once here.
+    cfg := version.ResolveConfig(config...)
+    headers := cfg.Headers()
+    body, status := cfg.JSONResponse()
+
+    return func(c echo.Context) error {
+        if cfg.IncludeHeaders {
+            for name, value := range headers {
+                c.Response().Header().Set(name, value)
+            }
+        }
+        return c.Blob(status, "application/json", body)
+    }
+}
+```
 
 ### Info Methods
 
@@ -390,10 +449,19 @@ Compiler:   gc
 
 ## Testing
 
+What CI runs:
+
 ```bash
-go test -v -race -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
+gofmt -s -l .
+go vet ./...
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+go tool cover -func=coverage.out   # per-function summary
+go tool cover -html=coverage.out   # annotated source
 ```
+
+`-covermode=atomic` is required alongside `-race`; the default `set` mode is
+not race-safe and Codecov reads the atomic counts.
 
 ## Build Details
 

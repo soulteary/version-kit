@@ -297,7 +297,7 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 
 ## API 参考
 
-### 包级函数
+### 构造 Info
 
 | 函数 | 描述 |
 |------|------|
@@ -305,10 +305,67 @@ version.RegisterEndpoint(mux, "/version", version.HandlerConfig{
 | `NewWithBranch(version, commit, buildDate, branch string) *Info` | 与 `New` 类似，同时设置分支名。 |
 | `Default() *Info` | 使用包变量（Version、Commit、BuildDate、Branch）构造信息，通常由 ldflags 在构建时注入。 |
 | `NewBuilder() *Builder` | 返回用于以流式 API 构建 `Info` 的 Builder。 |
+
+### 用 net/http 提供服务
+
+| 函数 | 描述 |
+|------|------|
+| `Handler(config ...HandlerConfig) http.HandlerFunc` | 以 JSON 提供版本信息。 |
+| `TextHandler(config ...HandlerConfig) http.HandlerFunc` | 以纯文本提供版本信息。 |
+| `SimpleHandler() http.HandlerFunc` | 只返回版本字符串，每次请求都从包变量读取。 |
+| `RegisterEndpoint(mux *http.ServeMux, path string, config ...HandlerConfig)` | 把 `Handler` 注册到 `ServeMux` 上。 |
 | `Middleware(info *Info, prefix string) func(http.Handler) http.Handler` | 为每个响应添加**公开**版本响应头（`X-Version`、`X-Branch`）。 |
 | `MiddlewareWithConfig(config HandlerConfig) func(http.Handler) http.Handler` | 同上，接受完整 `HandlerConfig`；设置 `IncludeBuildDetails` 可输出 `X-Commit` 与 `X-Build-Date`。 |
-| `fiberadapter.Middleware(info *Info, prefix string) fiber.Handler` | `Middleware` 的 Fiber 版本。 |
-| `fiberadapter.MiddlewareWithConfig(config HandlerConfig) fiber.Handler` | `MiddlewareWithConfig` 的 Fiber 版本。 |
+| `DefaultHandlerConfig() HandlerConfig` | 返回已填好默认值的 `HandlerConfig`。 |
+
+### 用 Fiber 提供服务
+
+`github.com/soulteary/version-kit/v2/fiberadapter` —— 同一套函数、返回同样的
+字节，类型换成 `fiber.Handler`。把 Fiber 链接进二进制的是**这个**包，根包不会。
+
+| 函数 | 对应的 net/http 版本 |
+|------|----------------------|
+| `fiberadapter.Handler(config ...version.HandlerConfig) fiber.Handler` | `Handler` |
+| `fiberadapter.TextHandler(config ...version.HandlerConfig) fiber.Handler` | `TextHandler` |
+| `fiberadapter.SimpleHandler() fiber.Handler` | `SimpleHandler` |
+| `fiberadapter.RegisterEndpoint(app *fiber.App, path string, config ...version.HandlerConfig)` | `RegisterEndpoint` |
+| `fiberadapter.Middleware(info *version.Info, prefix string) fiber.Handler` | `Middleware` |
+| `fiberadapter.MiddlewareWithConfig(config version.HandlerConfig) fiber.Handler` | `MiddlewareWithConfig` |
+
+### 用其他框架提供服务
+
+Echo、Gin、chi —— 决定**服务什么**的规则都是 `HandlerConfig` 上的方法，适配器
+读取它们而不是各写一遍，因此不会与上面的 handler 产生分歧。`fiberadapter` 本身
+就只用了这些，没有别的。
+
+| 方法 | 返回 |
+|------|------|
+| `ResolveConfig(config ...HandlerConfig) HandlerConfig` | 变长 config 参数的最终配置：有就取第一个，没有就用 `DefaultHandlerConfig()`，两种情况都会经过 `Normalized`。 |
+| `(c HandlerConfig) Normalized() HandlerConfig` | 把 nil 的 `Info` 换成 `Default()`、把不是合法 HTTP token 的 `HeaderPrefix` 换成 `"X-"` 之后的配置。 |
+| `(c HandlerConfig) Payload() *Info` | 要服务的 `Info`；未设置 `IncludeBuildDetails` 时精简为公开字段。 |
+| `(c HandlerConfig) TextPayload() string` | `Payload` 渲染成纯文本端点的形式。 |
+| `(c HandlerConfig) JSONResponse() (body []byte, status int)` | `Payload` 序列化后的结果（`Pretty` 时缩进），以及随之发送的状态码。 |
+| `(c HandlerConfig) Headers() map[string]string` | 要输出的版本响应头，已消毒、以完整头名为键。遵循 `IncludeBuildDetails`。 |
+
+一个完整的适配器就是这样：
+
+```go
+func Handler(config ...version.HandlerConfig) echo.HandlerFunc {
+    // 这两样都不随请求变化，在这里算一次即可。
+    cfg := version.ResolveConfig(config...)
+    headers := cfg.Headers()
+    body, status := cfg.JSONResponse()
+
+    return func(c echo.Context) error {
+        if cfg.IncludeHeaders {
+            for name, value := range headers {
+                c.Response().Header().Set(name, value)
+            }
+        }
+        return c.Blob(status, "application/json", body)
+    }
+}
+```
 
 ### Info 方法
 
@@ -425,10 +482,19 @@ header。非法前缀会回退为 `"X-"`。
 
 ## 测试
 
+CI 实际跑的是：
+
 ```bash
-go test -v -race -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
+gofmt -s -l .
+go vet ./...
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+go tool cover -func=coverage.out   # 按函数汇总
+go tool cover -html=coverage.out   # 带标注的源码
 ```
+
+`-covermode=atomic` 在搭配 `-race` 时是必需的：默认的 `set` 模式不是 race-safe，
+而且 Codecov 读的就是 atomic 计数。
 
 ## 升级说明（v2.2.0）
 
