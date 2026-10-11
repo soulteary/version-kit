@@ -61,7 +61,7 @@
 
 ## 运行要求
 
-- **Go 1.27+**，用于构建与运行（`go.mod` 声明 `go 1.27.0`）。
+- **Go 1.27+**，用于构建与运行（`go.mod` 声明 `go 1.27.2`）。
 - Fiber API（`fiberadapter.Handler`、`fiberadapter.Middleware` 等）要求 Fiber v3.4.0 或更高版本。
 - net/http API（`httpadapter.Handler`、`httpadapter.Middleware` 等）只需要标准库。
 
@@ -691,7 +691,7 @@ Fiber 此前返回 `application/json; charset=utf-8`；RFC 8259 并没有为
 
 ### 5. 需要 Go 1.27+
 
-`go.mod` 声明的是 `go 1.27.0`，v3 在更低版本的工具链上构建不了。
+`go.mod` 声明的是 `go 1.27.2`，v3 在更低版本的工具链上构建不了。
 
 ## 更早的变更：构建详情改为 opt-in（v2.2.0）
 

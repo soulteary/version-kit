@@ -67,7 +67,7 @@ subpackages, so a CLI that only prints `--version` links neither.
 
 ## Requirements
 
-- **Go 1.27+** for building and running (`go.mod` declares `go 1.27.0`).
+- **Go 1.27+** for building and running (`go.mod` declares `go 1.27.2`).
 - Fiber APIs (`fiberadapter.Handler`, `fiberadapter.Middleware`, etc.) require Fiber v3.4.0 or later.
 - net/http APIs (`httpadapter.Handler`, `httpadapter.Middleware`, etc.) need only the standard library.
 
@@ -720,7 +720,7 @@ identical; a custom Fiber encoder no longer applies to this endpoint.
 
 ### 5. Go 1.27+
 
-`go.mod` declares `go 1.27.0`. v3 will not build on an older toolchain.
+`go.mod` declares `go 1.27.2`. v3 will not build on an older toolchain.
 
 ## Earlier: build details became opt-in (v2.2.0)
 
