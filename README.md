@@ -500,7 +500,7 @@ go tool cover -html=coverage.out   # annotated source
 ```
 
 `-covermode=atomic` is required alongside `-race`; the default `set` mode is
-not race-safe and Codecov reads the atomic counts.
+not race-safe; Go Test Report reads the atomic coverage profile.
 
 One of those tests is not about behaviour. `TestRootPackageStaysDependencyFree`
 reads `go list -deps .` and fails if the root package has picked up `net/http`,
