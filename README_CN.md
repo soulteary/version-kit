@@ -527,7 +527,7 @@ go tool cover -html=coverage.out   # 带标注的源码
 ```
 
 `-covermode=atomic` 在搭配 `-race` 时是必需的：默认的 `set` 模式不是 race-safe，
-而且 Codecov 读的就是 atomic 计数。
+Go Test Report 使用同一次测试生成的 atomic 覆盖率文件。
 
 其中有一个测试测的不是行为。`TestRootPackageStaysDependencyFree` 会读
 `go list -deps .`，一旦根包重新引入了 `net/http`、Fiber 或 fasthttp 就失败。
