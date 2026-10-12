@@ -58,7 +58,7 @@
 
 ## 运行要求
 
-- **Go 1.27+**，用于构建与运行（`go.mod` 声明 `go 1.27.2`）。
+- **Go 1.27.2+**，用于构建与运行（`go.mod` 声明 `go 1.27.2`）。
 - Fiber API（`fiberadapter.Handler`、`fiberadapter.Middleware` 等）要求 Fiber v3.4.0 或更高版本。
 - net/http API（`httpadapter.Handler`、`httpadapter.Middleware` 等）只需要标准库。
 
