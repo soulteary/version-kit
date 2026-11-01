@@ -3,6 +3,15 @@
 Notable changes per release. This file starts at v3.0.0; for the v1 and v2
 history before that, see the [tags](https://github.com/soulteary/version-kit/tags).
 
+## [4.0.3] - 2026-11-01
+
+### Changed
+
+- Update the optional Fiber adapter dependency from Fiber v3.5.0 to v3.6.1, with compatible schema, utils, compression, fasthttp and networking patches.
+- Update the test-only YAML dependency to v3.0.6.
+- Pin Go Test Report v1.1.3 and Go Report Card v1.1.4; retain Go 1.27.3, the public API and ldflags symbol paths.
+
+
 ## v4.0.0
 
 A new major version, which in Go means a new module path. **Every import
