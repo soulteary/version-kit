@@ -3,6 +3,14 @@
 Notable changes per release. This file starts at v3.0.0; for the v1 and v2
 history before that, see the [tags](https://github.com/soulteary/version-kit/tags).
 
+## [4.0.4] - 2026-11-13
+
+### Changed
+
+- Require Go 1.27.4, which carries security fixes to cgo, the go command, the compiler, the linker and `net/http`.
+
+The module path and the public API are unchanged.
+
 ## [4.0.3] - 2026-11-01
 
 ### Changed
