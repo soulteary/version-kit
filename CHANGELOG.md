@@ -3,6 +3,14 @@
 Notable changes per release. This file starts at v3.0.0; for the v1 and v2
 history before that, see the [tags](https://github.com/soulteary/version-kit/tags).
 
+## [4.0.5] - 2026-11-13
+
+### Changed
+
+- Update `github.com/gofiber/fiber/v3` from v3.6.1 to v3.7.0. An application that selects this release is moved to Fiber v3.7.0 or later.
+
+The module path and the public API are unchanged.
+
 ## [4.0.4] - 2026-11-13
 
 ### Changed
