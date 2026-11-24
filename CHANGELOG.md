@@ -3,6 +3,16 @@
 Notable changes per release. This file starts at v3.0.0; for the v1 and v2
 history before that, see the [tags](https://github.com/soulteary/version-kit/tags).
 
+## [Unreleased]
+
+### Changed
+
+- Refresh fasthttp, Fiber helper modules, compression and networking
+  requirements used by the optional Fiber adapter. Fiber remains v3.7.0
+  and the Go requirement remains 1.27.4.
+
+Prepared for v4.0.6. See the [candidate release notes](.github/releases/v4.0.6.md).
+
 ## [4.0.5] - 2026-11-13
 
 ### Changed
