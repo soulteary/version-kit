@@ -5,13 +5,28 @@ history before that, see the [tags](https://github.com/soulteary/version-kit/tag
 
 ## [Unreleased]
 
+## [4.0.7] - 2026-11-26
+
+### Changed
+
+- Update the indirect Fiber adapter dependency `github.com/gofiber/schema`
+  from v1.10.0 to v1.10.2.
+- Refresh GitHub Actions dependencies used by CI and release validation.
+
+The module path, public API and Go 1.27.4 requirement are unchanged.
+Fiber remains in the optional adapter; this patch does not add Fiber
+to the root package imports.
+
+
+## [4.0.6] - 2026-11-24
+
 ### Changed
 
 - Refresh fasthttp, Fiber helper modules, compression and networking
   requirements used by the optional Fiber adapter. Fiber remains v3.7.0
   and the Go requirement remains 1.27.4.
 
-Prepared for v4.0.6. See the [candidate release notes](.github/releases/v4.0.6.md).
+Release notes: see the [release notes](.github/releases/v4.0.6.md).
 
 ## [4.0.5] - 2026-11-13
 
